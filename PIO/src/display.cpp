@@ -1,61 +1,132 @@
 #include "display.h"
 
 #include <Arduino.h>
-#include <TFT_eSPI.h>
+#include <lvgl.h>
 
-namespace Display
+#include <hardware/i2c.h>
+#include <hardware/gpio.h>
+#include <pico/stdlib.h>
+
+#include "lcd_3in49.h"
+
+namespace
 {
-    static TFT_eSPI tft;
-    static lv_disp_draw_buf_t draw_buf;
-    static lv_color_t buf[Width * Height / 10];
+    constexpr uint8_t  TOUCH_I2C_ADDR = 0x3B;
+    constexpr int      TOUCH_SDA_PIN  = 32;
+    constexpr int      TOUCH_SCL_PIN  = 33;
+    constexpr uint32_t TOUCH_I2C_HZ   = 400000;
+    constexpr uint32_t DRAW_BUF_PIXELS = Display::Width * 20;
 
-#if LV_USE_LOG != 0
-    static void lvgl_print(const char *msg)
+    lv_disp_draw_buf_t draw_buf;
+    lv_color_t         draw_buf_mem[DRAW_BUF_PIXELS];
+
+    uint8_t touch_cmd[11] = {0xB5, 0xAB, 0xA5, 0x5A, 0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00};
+
+    void touch_begin()
     {
-        Serial.printf(msg);
-        Serial.flush();
+        i2c_init(i2c0, TOUCH_I2C_HZ);
+        gpio_set_function(TOUCH_SDA_PIN, GPIO_FUNC_I2C);
+        gpio_set_function(TOUCH_SCL_PIN, GPIO_FUNC_I2C);
+        gpio_pull_up(TOUCH_SDA_PIN);
+        gpio_pull_up(TOUCH_SCL_PIN);
     }
-#endif
 
-    static void flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+    bool touch_read(uint16_t &x, uint16_t &y)
     {
-        uint32_t w = (area->x2 - area->x1 + 1);
-        uint32_t h = (area->y2 - area->y1 + 1);
+        uint8_t data[32] = {0};
 
-        tft.startWrite();
-        tft.setAddrWindow(area->x1, area->y1, w, h);
-        tft.pushColors((uint16_t *)&color_p->full, w * h, true);
-        tft.endWrite();
+        if (i2c_write_blocking(i2c0, TOUCH_I2C_ADDR, touch_cmd, sizeof(touch_cmd), true) < 0) {
+            return false;
+        }
+        if (i2c_read_blocking(i2c0, TOUCH_I2C_ADDR, data, sizeof(data), false) < 0) {
+            return false;
+        }
+
+        if (data[1] == 0) {
+            return false;
+        }
+
+        uint16_t raw_x = (((uint16_t)data[2] & 0x0F) << 8) | data[3];
+        uint16_t raw_y = (((uint16_t)data[4] & 0x0F) << 8) | data[5];
+
+        if (raw_x >= Display::Width)  raw_x = Display::Width - 1;
+        if (raw_y >= Display::Height) raw_y = Display::Height - 1;
+
+        if (Display::TouchSwapXY) {
+            uint16_t t = raw_x;
+            raw_x = raw_y;
+            raw_y = t;
+        }
+
+        if (raw_x >= Display::Width)  raw_x = Display::Width - 1;
+        if (raw_y >= Display::Height) raw_y = Display::Height - 1;
+
+        x = Display::TouchInvertX ? (Display::Width  - 1 - raw_x) : raw_x;
+        y = Display::TouchInvertY ? (Display::Height - 1 - raw_y) : raw_y;
+        return true;
+    }
+
+    void touch_read_cb(lv_indev_drv_t *, lv_indev_data_t *data)
+    {
+        uint16_t x = 0, y = 0;
+        if (touch_read(x, y)) {
+            data->point.x = x;
+            data->point.y = y;
+            data->state   = LV_INDEV_STATE_PRESSED;
+        } else {
+            data->state = LV_INDEV_STATE_RELEASED;
+        }
+    }
+
+    void flush_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+    {
+        uint32_t w = (uint32_t)(area->x2 - area->x1 + 1);
+        uint32_t h = (uint32_t)(area->y2 - area->y1 + 1);
+        uint32_t count = w * h;
+
+        /* LVGL's assets use native little-endian RGB565.  The panel expects
+         * big-endian bytes, so swap the buffer in place before DMA. */
+        uint16_t *pixels = (uint16_t *)color_p;
+        for (uint32_t i = 0; i < count; i++) {
+            uint16_t v = pixels[i];
+            pixels[i] = (uint16_t)((v >> 8) | (v << 8));
+        }
+
+        LCD_SetWindow((uint16_t)area->x1, (uint16_t)area->y1,
+                      (uint16_t)area->x2, (uint16_t)area->y2);
+        LCD_WritePixels(pixels, count);
 
         lv_disp_flush_ready(disp);
     }
+}
+
+namespace Display
+{
+    bool TouchSwapXY = false;
+    bool TouchInvertX = false;
+    bool TouchInvertY = false;
 
     void begin()
     {
         lv_init();
 
-#if LV_USE_LOG != 0
-        lv_log_register_print_cb(lvgl_print);
-#endif
+        LCD_Init();
+        touch_begin();
 
-        tft.begin();
-        tft.setRotation(3); // Landscape, flipped
+        lv_disp_draw_buf_init(&draw_buf, draw_buf_mem, nullptr, DRAW_BUF_PIXELS);
 
-        lv_disp_draw_buf_init(&draw_buf, buf, NULL, Width * Height / 10);
-
-        // Display driver
         static lv_disp_drv_t disp_drv;
         lv_disp_drv_init(&disp_drv);
         disp_drv.hor_res  = Width;
         disp_drv.ver_res  = Height;
-        disp_drv.flush_cb = flush;
+        disp_drv.flush_cb = flush_cb;
         disp_drv.draw_buf = &draw_buf;
         lv_disp_drv_register(&disp_drv);
 
-        // Dummy input device
         static lv_indev_drv_t indev_drv;
         lv_indev_drv_init(&indev_drv);
-        indev_drv.type = LV_INDEV_TYPE_POINTER;
+        indev_drv.type    = LV_INDEV_TYPE_POINTER;
+        indev_drv.read_cb = touch_read_cb;
         lv_indev_drv_register(&indev_drv);
     }
 }

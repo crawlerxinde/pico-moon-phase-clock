@@ -1,30 +1,192 @@
 # Moon Phase Clock
 
-```cpp
-// credential.h
+## 移植说明（中文）
 
-#ifndef CREDENTIAL_H
-#define CREDENTIAL_H
+本项目已适配 **Waveshare RP2350-Touch-LCD-3.49**（RP2350B + 172×640 AXS15231B QSPI 触摸屏）。
 
-// WiFi credentials
-static const char* ssid     = "";
-static const char* password = "";
+* 原项目使用 ESP32-S3 + WiFi + visualcrossing 天气 API；该开发板**没有 WiFi**，因此改为完全离线运行。
+* 时间来自板载 **PCF85063A RTC**；月相、日出/日落、月出/月落由本地天文算法计算。
+* 屏幕按 **640×172 横屏** 重新布局：左侧 170×170 月相图，右侧显示时间、日期、月相和升落时间。
+* 显示驱动使用 QSPI PIO + DMA；触摸使用 I2C0 轮询。
+* 原来的 ESP32 网络代码保留在 `PIO/src/legacy/`，不参与编译。
 
-// visualcrossing.com API key
-static const char* apiKey   = "";
+快速使用：
 
-// Location for visualcrossing query (max 4 decimals)
-static const float myLat = 00.0000; // 00.0000
-static const float myLon = 00.0000; // 00.0000
-
-// NTP timezone — set gmtOffset_sec to your UTC offset in seconds
-// e.g. UTC+3:  3 * 3600     UTC-5:  -5 * 3600
-static const long  gmtOffset_sec      = 3 * 3600;
-static const int   daylightOffset_sec = 0; // 3600 if your locale uses DST
-
-#endif
-
+```bash
+cd PIO
+pio run
+# 生成的固件：
+# PIO/.pio/build/waveshare_rp2350_touch_lcd_3_49/firmware.uf2
 ```
----
 
-![alt text](<Assets/Moon Phase Clock.GIF>)
+按住 **BOOT** 键连接 USB-C，出现 `RP2350`/`RPI-RP2` 磁盘后，把 `firmware.uf2` 拖进去即可。
+
+### 烧录后自动校准 RTC
+
+使用 `pio run -t upload` 烧录时，`PIO/scripts/post_upload.py` 会在上传完成后自动打开
+USB 串口，把电脑的**本地时间**发送给板子：
+
+```text
+T YYYY-MM-DD HH:MM:SS
+```
+
+如果使用拖拽 UF2 的方式烧录，脚本不会自动运行，可在板子启动后执行：
+
+```bash
+cd PIO
+pio run -t setrtc
+# 或
+python scripts/set_rtc.py
+```
+
+也可以手动指定端口或时间：
+
+```bash
+python scripts/set_rtc.py --port /dev/cu.usbmodem1234
+python scripts/set_rtc.py --time "2026-10-17 22:30:00"
+```
+
+首次使用请修改 `PIO/src/credential.h` 中的经纬度和时区。自动校准使用电脑本地时间；
+如果电脑时区与板子配置的 UTC 偏移不同，请用 `--time` 传入正确的本地时间。
+
+串口命令：`B 0..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`R` 读时间、`?` 帮助。
+
+Moon phase clock running on the **Waveshare RP2350-Touch-LCD-3.49** board.
+
+The original project targeted an ESP32-S3 + TFT_eSPI display and fetched weather
+data from visualcrossing.com.  That board is replaced here by an RP2350B with a
+172x640 AXS15231B QSPI touch panel.  **The Waveshare board has no WiFi module**,
+so this port runs fully offline:
+
+* time comes from the onboard **PCF85063A RTC** (coin-cell backed),
+* moon phase is calculated from a synodic-month algorithm,
+* sunrise/sunset and moonrise/moonset are calculated locally from the
+  latitude/longitude configured in `PIO/src/credential.h`.
+
+The original ESP32-only networking files are kept in `PIO/src/legacy/` for
+reference and are excluded from the build.
+
+![Moon Phase Clock](Assets/Moon%20Phase%20Clock.GIF)
+
+## Hardware / pin map
+
+| Function | RP2350B pins |
+|---|---|
+| LCD QSPI (AXS15231B) | CS 25, SCLK 20, D0-D3 21-24, RST 34, PWR_EN 37 |
+| LCD backlight | GPIO 36 (PWM, active low) |
+| Touch (AXS15231B, I2C0, addr 0x3B) | SDA 32, SCL 33, INT 11 |
+| RTC PCF85063A (I2C1, addr 0x51) | SDA 6, SCL 7 |
+| Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
+| Power button | SYS_OUT GPIO 38 (low = pressed) |
+
+The UI is laid out for the panel's **640x172 landscape** orientation.  The
+display driver sets `MADCTL = 0x60` (MX | MV).
+
+## Configure
+
+Edit `PIO/src/credential.h`:
+
+```cpp
+static const float myLat = 51.5074f;   // your latitude
+static const float myLon = -0.1278f;   // your longitude (east positive)
+static const long  gmtOffset_sec = 3600;
+static const int   daylightOffset_sec = 3600; // 0 if not in DST
+```
+
+The RTC stores **local time**.  On the first boot (or after the RTC battery is
+lost) it is seeded with the firmware build date/time.  Set it precisely over
+the USB serial console:
+
+```text
+T 2026-10-17 22:30:00
+```
+
+Serial commands (115200 baud):
+
+| Command | Action |
+|---|---|
+| `T YYYY-MM-DD HH:MM:SS` | set the RTC (local time) |
+| `B 0..100` | set backlight brightness |
+| `F` | flip the display 180 degrees |
+| `X` / `Y` / `S` | invert touch X / invert touch Y / swap touch axes |
+| `R` | print the current RTC date/time |
+| `?` | help |
+
+If touch does not line up with the screen, use `X`, `Y` and `S` first; the
+current calibration can then be copied into `PIO/src/display.cpp`.
+
+## Build and flash
+
+`PIO/platformio.ini` uses the Arduino-Pico fork with RP2350 support:
+
+```bash
+cd PIO
+pio run
+```
+
+The UF2 is generated at:
+
+```text
+PIO/.pio/build/waveshare_rp2350_touch_lcd_3_49/firmware.uf2
+```
+
+To flash:
+
+1. Hold **BOOT**, connect USB-C (or press RESET while holding BOOT).
+2. A drive named `RP2350` / `RPI-RP2` appears.
+3. Copy `firmware.uf2` onto that drive.
+4. The board reboots and runs the clock.
+
+Alternatively, with the board already in BOOTSEL mode:
+
+```bash
+cd PIO
+pio run -t upload
+```
+
+### Automatic RTC calibration after upload
+
+`pio run -t upload` runs `PIO/scripts/post_upload.py` after a successful upload.
+It opens the board's USB CDC port and sends the host's local time to the RTC:
+
+```text
+T YYYY-MM-DD HH:MM:SS
+```
+
+If you flash by dragging the UF2 instead, run the calibration manually after the
+board boots:
+
+```bash
+cd PIO
+pio run -t setrtc
+# or
+python scripts/set_rtc.py
+```
+
+The helper also accepts an explicit port or time:
+
+```bash
+python scripts/set_rtc.py --port /dev/cu.usbmodem1234
+python scripts/set_rtc.py --time "2026-10-17 22:30:00"
+```
+
+The automatic calibration uses the host's local clock.  If the host timezone
+differs from the `gmtOffset_sec` configured in `credential.h`, pass the correct
+local time with `--time`.
+
+## Notes about the port
+
+* **Display**: QSPI PIO + DMA driver for the AXS15231B, based on Waveshare's
+  demo.  The LVGL flush callback byte-swaps RGB565 because the panel expects
+  big-endian pixels while the SquareLine assets use `LV_COLOR_16_SWAP = 0`.
+* **Touch**: polled I2C reads; no interrupt is required for the clock UI.
+* **UI**: the original 320x170 layout was re-arranged for 640x172.  The moon
+  image remains 170x170 on the left; time, date, phase and rise/set times use
+  the remaining width.
+* **Power**: `SYS_EN` is asserted at the very start of `setup()` so the board
+  stays on when running from the 18650 battery.  Holding the power button for
+  ~2.5 s releases the latch.
+* **No WiFi**: the weather client, WiFi manager and NTP code were removed from
+  the active build.  Everything is local and works without a network.  If you
+  later add an external WiFi module, the old code is in `PIO/src/legacy/` as a
+  starting point.
