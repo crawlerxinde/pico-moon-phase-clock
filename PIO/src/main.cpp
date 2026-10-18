@@ -36,12 +36,15 @@ namespace
     bool          screenOn = true;
     uint8_t       currentBrightness = defaultBrightness;
 
-    /* Vertical swipe on the clock page adjusts the backlight. */
-    bool          brightnessTouchActive = false;
-    bool          brightnessSwipeFired = false;
-    uint16_t      brightnessStartX = 0;
-    uint16_t      brightnessStartY = 0;
-    unsigned long brightnessLastTouchMs = 0;
+    /* Single gesture state machine: horizontal opens/closes Settings,
+     * vertical adjusts brightness.  Only one action is allowed per gesture. */
+    constexpr int SWIPE_HORIZONTAL_PX = 100;
+    constexpr int SWIPE_VERTICAL_PX   = 60;
+    bool          swipeTouchActive = false;
+    bool          swipeFired = false;
+    uint16_t      swipeStartX = 0;
+    uint16_t      swipeStartY = 0;
+    unsigned long swipeLastTouchMs = 0;
 
     char serialBuf[64];
     size_t serialLen = 0;
@@ -149,26 +152,28 @@ namespace
         while (true) { tight_loop_contents(); }
     }
 
-    void handleBrightnessSwipe()
+    void handleSwipeGestures()
     {
-        if (Settings::isOpen()) {
-            brightnessTouchActive = false;
-            return;
-        }
-
         unsigned long nowMs = millis();
         if (Display::TouchDown) {
-            if (!brightnessTouchActive) {
-                brightnessTouchActive = true;
-                brightnessSwipeFired = false;
-                brightnessStartX = Display::TouchLastX;
-                brightnessStartY = Display::TouchLastY;
-            } else if (!brightnessSwipeFired) {
-                int dx = (int)Display::TouchLastX - (int)brightnessStartX;
-                int dy = (int)Display::TouchLastY - (int)brightnessStartY;
+            if (!swipeTouchActive) {
+                swipeTouchActive = true;
+                swipeFired = false;
+                swipeStartX = Display::TouchLastX;
+                swipeStartY = Display::TouchLastY;
+            } else if (!swipeFired) {
+                int dx = (int)Display::TouchLastX - (int)swipeStartX;
+                int dy = (int)Display::TouchLastY - (int)swipeStartY;
+                int adx = abs(dx);
+                int ady = abs(dy);
 
-                if (abs(dy) >= 60 && abs(dy) > abs(dx)) {
-                    brightnessSwipeFired = true;
+                if (adx >= SWIPE_HORIZONTAL_PX && adx > ady) {
+                    swipeFired = true;
+                    if (Settings::isOpen()) Settings::hide();
+                    else                    Settings::show();
+                } else if (!Settings::isOpen() &&
+                           ady >= SWIPE_VERTICAL_PX && ady > adx) {
+                    swipeFired = true;
                     if (screenOn) {
                         int next = (int)currentBrightness + ((dy < 0) ? 10 : -10);
                         if (next < 10) next = 10;
@@ -179,10 +184,9 @@ namespace
                     }
                 }
             }
-            brightnessLastTouchMs = nowMs;
-        } else if (brightnessTouchActive &&
-                   (nowMs - brightnessLastTouchMs) > 300) {
-            brightnessTouchActive = false;
+            swipeLastTouchMs = nowMs;
+        } else if (swipeTouchActive && (nowMs - swipeLastTouchMs) > 300) {
+            swipeTouchActive = false;
         }
     }
 
@@ -426,7 +430,7 @@ void loop()
     Clock::update();
     Astronomy::update();
     Settings::update();
-    handleBrightnessSwipe();
+    handleSwipeGestures();
     handleSerial();
     handlePowerButton();
 

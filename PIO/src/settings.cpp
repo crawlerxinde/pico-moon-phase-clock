@@ -11,7 +11,6 @@
 #include "astronomy.h"
 #include "battery.h"
 #include "clock.h"
-#include "display.h"
 #include "location.h"
 
 namespace
@@ -45,14 +44,6 @@ namespace
     bool openFlag = false;
     unsigned long lastUiRefreshMs = 0;
     unsigned long lastOffsetRefreshMs = 0;
-
-    /* Manual swipe tracking: the touch controller occasionally returns
-     * invalid placeholder samples, so LVGL's own gesture detector is not
-     * reliable.  Keep a stable press start and trigger on horizontal travel. */
-    bool manualTouchActive = false;
-    bool manualSwipeFired  = false;
-    uint16_t manualStartX = 0, manualStartY = 0;
-    unsigned long manualLastTouchMs = 0;
 
     lv_obj_t *make_label(lv_obj_t *parent, int x, int y, int w, int h,
                          const char *text, const lv_font_t *font,
@@ -350,31 +341,6 @@ namespace
         }
     }
 
-    void updateManualSwipe()
-    {
-        unsigned long nowMs = millis();
-        if (Display::TouchDown) {
-            uint16_t x = Display::TouchLastX;
-            uint16_t y = Display::TouchLastY;
-            if (!manualTouchActive) {
-                manualTouchActive = true;
-                manualSwipeFired  = false;
-                manualStartX = x;
-                manualStartY = y;
-            } else if (!manualSwipeFired) {
-                int dx = (int)x - (int)manualStartX;
-                int dy = (int)y - (int)manualStartY;
-                if (abs(dx) >= 60 && abs(dx) > abs(dy)) {
-                    manualSwipeFired = true;
-                    if (Settings::isOpen()) Settings::hide();
-                    else                    Settings::show();
-                }
-            }
-            manualLastTouchMs = nowMs;
-        } else if (manualTouchActive && (nowMs - manualLastTouchMs) > 300) {
-            manualTouchActive = false;
-        }
-    }
 }
 
 namespace Settings
@@ -521,8 +487,6 @@ namespace Settings
 
     void update()
     {
-        updateManualSwipe();
-
         if (!openFlag) return;
 
         unsigned long nowMs = millis();
