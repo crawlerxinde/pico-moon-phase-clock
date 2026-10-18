@@ -49,7 +49,7 @@ python scripts/set_rtc.py --time "2026-10-17 22:30:00"
 首次使用请修改 `PIO/src/credential.h` 中的经纬度和时区。自动校准使用电脑本地时间；
 如果电脑时区与板子配置的 UTC 偏移不同，请用 `--time` 传入正确的本地时间。
 
-串口命令：`B 0..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`C` 截屏、`R` 读时间、`?` 帮助。
+串口命令：`B 20..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`C` 截屏、`R` 读时间、`?` 帮助。
 
 截屏（生成 PNG）：
 
@@ -119,7 +119,7 @@ panel's MADCTL rotation mode.  The location pill shows the current city
 
 On the clock face:
 
-* swipe **up / down** to increase / decrease brightness by 20% (clamped to 10–100%),
+* swipe **up / down** to increase / decrease brightness by 20% (clamped to 20–100%),
 * swipe **left or right** to open Settings (swipe either direction to return),
 * or tap the location pill to open Settings.
 
@@ -127,7 +127,7 @@ The Settings page contains:
 
 * **Battery**: voltage on GPIO40/ADC0 (3:1 divider), percentage and bar.
   With USB power and no 18650 installed the page shows `USB / No battery`.
-* **Brightness**: slider at the top of Settings (10–100%); it shares the same
+* **Brightness**: slider at the top of Settings (20–100%); it shares the same
   value as the clock-page vertical swipe and the serial `B` command.
 * **TICK**: switch next to the brightness slider.  It enables the per-second
   ticking sound (same PCM samples as the reference pico-clock project) and
@@ -177,7 +177,7 @@ Serial commands (115200 baud):
 | `L` | list locations; `L 0..5` select a city |
 | `K FIELD DELTA` | adjust date/time field (0=year .. 5=second), for diagnostics |
 | `A` | print battery voltage and percentage |
-| `B 0..100` | set backlight brightness |
+| `B 20..100` | set backlight brightness (minimum 20%) |
 | `F` | flip the display 180 degrees |
 | `X` / `Y` / `S` | invert touch X / invert touch Y / swap touch axes |
 | `C` | capture the LVGL screen as RGB565 over USB |

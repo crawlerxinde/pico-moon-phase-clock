@@ -4,6 +4,7 @@
 
 namespace
 {
+    constexpr int MIN_PERCENT = 20;
     int  currentPercent = 100;
     bool screenOnFlag = true;
 }
@@ -13,6 +14,8 @@ namespace Brightness
     void begin(uint8_t initialPercent)
     {
         currentPercent = initialPercent;
+        if (currentPercent < MIN_PERCENT) currentPercent = MIN_PERCENT;
+        if (currentPercent > 100) currentPercent = 100;
         screenOnFlag = true;
     }
 
@@ -23,7 +26,7 @@ namespace Brightness
 
     void set(int percent)
     {
-        if (percent < 0) percent = 0;
+        if (percent < MIN_PERCENT) percent = MIN_PERCENT;
         if (percent > 100) percent = 100;
         currentPercent = percent;
         if (screenOnFlag) {
@@ -34,7 +37,7 @@ namespace Brightness
     void adjust(int delta)
     {
         int next = currentPercent + delta;
-        if (next < 10) next = 10;
+        if (next < MIN_PERCENT) next = MIN_PERCENT;
         if (next > 100) next = 100;
         set(next);
     }

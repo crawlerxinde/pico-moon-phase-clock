@@ -99,8 +99,11 @@ namespace
         if (i2c_write_blocking(i2c1, RTC_ADDR, &reg, 1, true) < 0) return false;
         if (i2c_read_blocking(i2c1, RTC_ADDR, buf, sizeof(buf), false) < 0) return false;
 
-        /* Bit 7 of the seconds register is the oscillator-stop flag. */
-        if (buf[0] & 0x80) return false;
+        /* Bit 7 of the seconds register is the oscillator-stop flag.  It is
+         * sticky after a short power dip; if the time registers still carry a
+         * valid date, clear the flag and use them instead of resetting to the
+         * firmware build time. */
+        const bool oscillatorStopped = (buf[0] & 0x80) != 0;
 
         int sec   = bcdToDec(buf[0] & 0x7F);
         int min   = bcdToDec(buf[1] & 0x7F);
@@ -114,6 +117,11 @@ namespace
             return false;
         }
         if (day > Clock::daysInMonth(year, month)) return false;
+
+        if (oscillatorStopped) {
+            uint8_t clear[2] = {0x04, (uint8_t)(decToBcd(sec) & 0x7F)};
+            i2c_write_blocking(i2c1, RTC_ADDR, clear, sizeof(clear), false);
+        }
 
         dt.year    = year;
         dt.month   = month;

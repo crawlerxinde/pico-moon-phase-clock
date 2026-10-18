@@ -183,7 +183,7 @@ namespace
             lv_obj_set_size(batteryDigits, 118, 68);
             lv_obj_clear_flag(batteryUnit, LV_OBJ_FLAG_HIDDEN);
 
-            int width = (int)(136.0f * (float)Battery::percent() / 100.0f);
+            int width = (int)(148.0f * (float)Battery::percent() / 100.0f);
             if (width < 4 && Battery::percent() > 0) width = 4;
             lv_obj_set_width(batteryLevel, width);
             if (width > 0) {
@@ -378,7 +378,7 @@ namespace Settings
         brightnessSlider = lv_slider_create(settingsScreen);
         lv_obj_set_pos(brightnessSlider, 200, 9);
         lv_obj_set_size(brightnessSlider, 80, 14);
-        lv_slider_set_range(brightnessSlider, 10, 100);
+        lv_slider_set_range(brightnessSlider, 20, 100);
         lv_slider_set_value(brightnessSlider, Brightness::current(), LV_ANIM_OFF);
         lv_obj_set_ext_click_area(brightnessSlider, 6);
         lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0x333333),
