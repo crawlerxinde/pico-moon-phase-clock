@@ -187,8 +187,8 @@ lv_obj_t *astro_divider = ui_line(ui_Screen1_Container_Container, 366, 124, 1, 4
 lv_obj_set_style_bg_color(astro_divider, lv_color_hex(0x383838), 0);
 
 /* Dashed separator between the moon and sun rows. */
-for (int i = 0; i < 18; i++) {
-    lv_obj_t *dash = ui_line(ui_Screen1_Container_Container, 270 + i * 10, 146, 3, 1);
+for (int i = 0; i < 22; i++) {
+    lv_obj_t *dash = ui_line(ui_Screen1_Container_Container, 270 + i * 8, 146, 4, 1);
     lv_obj_set_style_bg_color(dash, lv_color_hex(0x383838), 0);
 }
 
