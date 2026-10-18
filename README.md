@@ -80,9 +80,9 @@ At boot the left 170x170 tile cycles through the 28 moon-phase frames over
 three seconds, matching the original T-Display-S3 animation.  The boot screen
 stays visible for one full cycle before switching to the clock.
 
-Returning from Settings uses a shorter transition instead: the current moon
-phase fades in, slides slightly and zooms from 190 to 236 over ~460 ms.  The
-full phase-cycle animation is intentionally boot-only.
+Returning from Settings uses a shorter, more pronounced transition instead:
+the current moon phase fades in, slides from -36 px and zooms from 130 to 236
+over ~620 ms.  The full phase-cycle animation is intentionally boot-only.
 
 ## Hardware / pin map
 
