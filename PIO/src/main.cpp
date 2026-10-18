@@ -3,7 +3,9 @@
 #include <ui.h>
 
 #include <hardware/clocks.h>
+#include <hardware/gpio.h>
 #include <hardware/watchdog.h>
+#include <pico/time.h>
 
 #include <stdlib.h>
 
@@ -251,6 +253,8 @@ namespace
         Serial.println("  L                       list locations; L 0..5 select");
         Serial.println("  K FIELD DELTA           adjust date/time field (0=year..5=sec)");
         Serial.println("  A                       print battery voltage/percentage");
+        Serial.println("  Q                       print ES8311 codec ID");
+        Serial.println("  M                       measure audio MCLK/BCLK/LRCLK");
         Serial.println("  P                       sample touch for 30 s (diagnostic)");
         Serial.println("  V                       print display debug info");
         Serial.println("  D / E                   portrait / landscape panel fill test");
@@ -351,6 +355,23 @@ namespace
                             delay(100);
                         }
                         Serial.println("TOUCH done");
+                    } else if (*line == 'Q' || *line == 'q') {
+                        Serial.printf("ES8311 ID: 0x%04X\n",
+                                      Audio::codecId());
+                    } else if (*line == 'M' || *line == 'm') {
+                        uint32_t counts[3] = {0, 0, 0};
+                        const uint32_t masks[3] = {1u << 3, 1u << 4, 1u << 5};
+                        uint32_t last = gpio_get_all();
+                        absolute_time_t end = make_timeout_time_ms(100);
+                        while (!time_reached(end)) {
+                            uint32_t now = gpio_get_all();
+                            for (int i = 0; i < 3; i++) {
+                                if ((now & masks[i]) && !(last & masks[i])) counts[i]++;
+                            }
+                            last = now;
+                        }
+                        Serial.printf("AUDIO MCLK=%uHz BCLK=%uHz LRCLK=%uHz\n",
+                                      counts[0] * 10, counts[1] * 10, counts[2] * 10);
                     } else if (*line == 'A' || *line == 'a') {
                         Battery::update();
                         int millivolts = (int)(Battery::voltage() * 1000.0f + 0.5f);

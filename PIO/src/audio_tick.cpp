@@ -30,6 +30,7 @@ namespace
     volatile uint32_t audioHead = 0;
     volatile uint32_t audioTail = 0;
     volatile bool     soundEnabled = true;
+    bool              soundMuted = true;
     unsigned long     lastTickMs = 0;
 
     void audioFeedCore1()
@@ -80,18 +81,21 @@ namespace Audio
         es8311_sample_frequency_config(pico_audio.mclk_freq,
                                        pico_audio.sample_freq);
         es8311_voice_volume_set(55);
-        es8311_voice_mute(true);
 
         mclk_pio_init();
         dout_pio_init();
+        es8311_voice_mute(true);
+        soundMuted = true;
 
         multicore_launch_core1(audioFeedCore1);
     }
 
     void update()
     {
-        if (lastTickMs != 0 && (millis() - lastTickMs) > 300) {
+        if (!soundMuted && lastTickMs != 0 &&
+            (millis() - lastTickMs) > 250) {
             es8311_voice_mute(true);
+            soundMuted = true;
             lastTickMs = 0;
         }
     }
@@ -100,8 +104,11 @@ namespace Audio
     {
         if (!soundEnabled) return;
 
-        es8311_voice_mute(false);
-        sleep_ms(2);
+        if (soundMuted) {
+            es8311_voice_mute(false);
+            soundMuted = false;
+            sleep_ms(3);
+        }
 
         const int16_t *buf = high ? tick_pcm_a : tick_pcm_b;
         for (int i = 0; i < TICK_PCM_N; i++) {
@@ -118,6 +125,7 @@ namespace Audio
         soundEnabled = enabled;
         if (!enabled) {
             es8311_voice_mute(true);
+            soundMuted = true;
             audioTail = audioHead;
         }
         saveEnabled();
@@ -126,5 +134,10 @@ namespace Audio
     bool enabled()
     {
         return soundEnabled;
+    }
+
+    unsigned int codecId()
+    {
+        return (unsigned int)es8311_read_id();
     }
 }
