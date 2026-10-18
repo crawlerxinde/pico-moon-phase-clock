@@ -82,7 +82,9 @@ stays visible for one full cycle before switching to the clock.
 
 Returning from Settings uses a shorter, more pronounced transition instead:
 the current moon phase fades in, slides from -36 px and zooms from 130 to 236
-over ~620 ms.  The full phase-cycle animation is intentionally boot-only.
+over ~620 ms.  The same transition is replayed when the clock page wakes from
+screen-off with the power button.  The full phase-cycle animation is
+intentionally boot-only.
 
 ## Hardware / pin map
 

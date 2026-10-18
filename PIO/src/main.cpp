@@ -18,6 +18,7 @@
 #include "display.h"
 #include "lcd_3in49.h"
 #include "location.h"
+#include "moon_intro.h"
 #include "settings.h"
 
 extern const lv_img_dsc_t *ui_imgset_moon_[30];
@@ -229,7 +230,12 @@ namespace
             buttonWasDown = false;
             unsigned long duration = now - buttonDownMs;
             if (duration >= POWER_SHORT_MS && duration < POWER_LONG_MS) {
+                bool wasOn = Brightness::screenOn();
                 Brightness::toggleScreen();
+                if (!wasOn && Brightness::screenOn() &&
+                    bootHidden && !Settings::isOpen()) {
+                    MoonIntro::play();
+                }
                 Serial.printf("Screen: %s\n",
                               Brightness::screenOn() ? "on" : "off");
             }
