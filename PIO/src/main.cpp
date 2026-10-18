@@ -25,6 +25,7 @@ namespace
     constexpr int POWER_LATCH_PIN = 39;
     constexpr int POWER_BUTTON_PIN = 38;
 
+    constexpr unsigned long BOOT_VISIBLE_MS = 4000;
     unsigned long bootStartMs = 0;
     bool          bootHidden = false;
 
@@ -438,13 +439,17 @@ void setup()
     lv_label_set_text(ui_Screen1_Label_bootscreen, "Moon Phase Clock");
     lv_obj_add_flag(ui_Screen1_Container_Container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_Screen1_Image_Moon, LV_OBJ_FLAG_HIDDEN);
-    moon_Animation(ui_Screen1_Image_bootscreeni, 1000);
     showPlaceholders();
 
     Clock::begin();
     Audio::begin();
     Astronomy::begin();
     Settings::begin();
+
+    /* Start the 28-frame moon boot animation immediately after all init is
+     * done, and keep the boot screen visible for one full 3 s cycle. */
+    lv_img_set_src(ui_Screen1_Image_bootscreeni, (const void *)ui_imgset_moon_[0]);
+    moon_Animation(ui_Screen1_Image_bootscreeni, 0);
 
     /* Paint one complete frame before turning the backlight on. */
     lv_refr_now(NULL);
@@ -464,7 +469,7 @@ void loop()
     Clock::update();
 
     Clock::DateTime now = Clock::now();
-    if (lastSecond >= 0 && now.second != lastSecond &&
+    if (bootHidden && lastSecond >= 0 && now.second != lastSecond &&
         Brightness::screenOn()) {
         Audio::tick((now.second & 1) == 0);
     }
@@ -478,7 +483,7 @@ void loop()
     handleSerial();
     handlePowerButton();
 
-    if (!bootHidden && (millis() - bootStartMs > 1500)) {
+    if (!bootHidden && (millis() - bootStartMs > BOOT_VISIBLE_MS)) {
         hideBootScreen();
         bootHidden = true;
     }

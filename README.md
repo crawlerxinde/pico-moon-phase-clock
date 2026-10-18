@@ -76,6 +76,10 @@ reference and are excluded from the build.
 
 ![Moon Phase Clock](Assets/Moon%20Phase%20Clock.GIF)
 
+At boot the left 170x170 tile cycles through the 28 moon-phase frames over
+three seconds, matching the original T-Display-S3 animation.  The boot screen
+stays visible for one full cycle before switching to the clock.
+
 ## Hardware / pin map
 
 | Function | RP2350B pins |
