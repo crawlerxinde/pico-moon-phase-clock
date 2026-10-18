@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include "astronomy.h"
+#include "audio_tick.h"
 #include "battery.h"
 #include "brightness.h"
 #include "clock.h"
@@ -441,6 +442,7 @@ void setup()
     showPlaceholders();
 
     Clock::begin();
+    Audio::begin();
     Astronomy::begin();
     Settings::begin();
 
@@ -454,10 +456,21 @@ void setup()
 
 void loop()
 {
+    static int lastSecond = -1;
+
     lv_timer_handler();
     delay(5);
 
     Clock::update();
+
+    Clock::DateTime now = Clock::now();
+    if (lastSecond >= 0 && now.second != lastSecond &&
+        Brightness::screenOn()) {
+        Audio::tick((now.second & 1) == 0);
+    }
+    lastSecond = now.second;
+    Audio::update();
+
     Astronomy::update();
     Settings::update();
     handleSwipeGestures();

@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "astronomy.h"
+#include "audio_tick.h"
 #include "battery.h"
 #include "brightness.h"
 #include "clock.h"
@@ -39,6 +40,7 @@ namespace
 
     lv_obj_t *brightnessSlider = nullptr;
     lv_obj_t *brightnessValueLabel = nullptr;
+    lv_obj_t *tickSwitch = nullptr;
 
     lv_obj_t *locationList = nullptr;
     lv_obj_t *locationRow[256] = {nullptr};
@@ -372,12 +374,12 @@ namespace Settings
         lv_obj_set_style_bg_opa(settingsScreen, 255, 0);
         make_label(settingsScreen, 12, 5, 120, 22, "Settings",
                    &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        make_label(settingsScreen, 148, 8, 68, 16, "BRIGHTNESS",
+        make_label(settingsScreen, 140, 8, 58, 16, "BRIGHT",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
 
         brightnessSlider = lv_slider_create(settingsScreen);
-        lv_obj_set_pos(brightnessSlider, 220, 9);
-        lv_obj_set_size(brightnessSlider, 92, 14);
+        lv_obj_set_pos(brightnessSlider, 200, 9);
+        lv_obj_set_size(brightnessSlider, 80, 14);
         lv_slider_set_range(brightnessSlider, 10, 100);
         lv_slider_set_value(brightnessSlider, Brightness::current(), LV_ANIM_OFF);
         lv_obj_set_ext_click_area(brightnessSlider, 6);
@@ -405,11 +407,39 @@ namespace Settings
             lv_label_set_text(brightnessValueLabel, text);
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        brightnessValueLabel = make_label(settingsScreen, 316, 8, 44, 16, "100%",
+        brightnessValueLabel = make_label(settingsScreen, 284, 8, 36, 16, "100%",
                                           &ui_font_Inter10M, 0xCCCCCC,
                                           LV_TEXT_ALIGN_RIGHT);
 
-        make_label(settingsScreen, 400, 8, 228, 16, "Swipe right to return",
+        make_label(settingsScreen, 328, 8, 30, 16, "TICK",
+                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
+        tickSwitch = lv_switch_create(settingsScreen);
+        lv_obj_set_pos(tickSwitch, 362, 9);
+        lv_obj_set_size(tickSwitch, 36, 18);
+        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0x333333),
+                                  LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0xBBBBBB),
+                                  LV_PART_INDICATOR);
+        lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0xBBBBBB),
+                                  LV_PART_INDICATOR | LV_STATE_CHECKED);
+        lv_obj_set_style_bg_opa(tickSwitch, 255,
+                                LV_PART_INDICATOR | LV_STATE_CHECKED);
+        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0xFFFFFF),
+                                  LV_PART_KNOB);
+        lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_KNOB);
+        lv_obj_set_style_pad_all(tickSwitch, 0, LV_PART_KNOB);
+        if (Audio::enabled()) {
+            lv_obj_add_state(tickSwitch, LV_STATE_CHECKED);
+        }
+        lv_obj_add_event_cb(tickSwitch, [](lv_event_t *event) {
+            bool on = lv_obj_has_state(lv_event_get_target(event),
+                                       LV_STATE_CHECKED);
+            Audio::setEnabled(on);
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        make_label(settingsScreen, 410, 8, 218, 16, "Swipe right to return",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_RIGHT);
 
         lv_obj_t *headerLine = lv_obj_create(settingsScreen);

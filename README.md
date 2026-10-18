@@ -85,6 +85,8 @@ reference and are excluded from the build.
 | Touch (AXS15231B, I2C0, addr 0x3B) | SDA 32, SCL 33, INT 11 |
 | RTC PCF85063A (I2C1, addr 0x51) | SDA 6, SCL 7 |
 | Battery voltage (3:1 divider) | GPIO 40 / ADC0 |
+| Audio ES8311 codec (I2C1, addr 0x18) | SDA 6, SCL 7 |
+| Audio I2S (PIO) | PA 0, DOUT 1, MCLK 3, BCLK 4, LRCLK 5 |
 | Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
 | Power button | SYS_OUT GPIO 38 (low = pressed) |
 
@@ -117,6 +119,9 @@ The Settings page contains:
   With USB power and no 18650 installed the page shows `USB / No battery`.
 * **Brightness**: slider at the top of Settings (10–100%); it shares the same
   value as the clock-page vertical swipe and the serial `B` command.
+* **TICK**: switch next to the brightness slider.  It enables the per-second
+  ticking sound (same PCM samples as the reference pico-clock project) and
+  stores the setting in EEPROM.
 * **Date & time**: tap a field (year, month, day, hour, minute or second),
   then use `-` / `+` to adjust it.  Every change is written to the RTC
   immediately.  Invalid dates such as 31 February are rejected.
