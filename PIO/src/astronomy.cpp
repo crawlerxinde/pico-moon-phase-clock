@@ -280,12 +280,16 @@ namespace Astronomy
         lv_label_set_text(ui_Screen1_Label_Phase, myCity);
         lv_img_set_src(ui_Screen1_Image_Moon, (const void *)ui_imgset_moon_[frame]);
 
-        lv_label_set_text(ui_Screen1_Label_sunrise, sunriseText);
-        lv_label_set_text(ui_Screen1_Label_sunset, sunsetText);
-        lv_label_set_text(ui_Screen1_Label_moonrise, moonriseText);
-        lv_label_set_text(ui_Screen1_Label_moonset, moonsetText);
+        char eventBuf[24];
+        snprintf(eventBuf, sizeof(eventBuf), "%s ↑", sunriseText);
+        lv_label_set_text(ui_Screen1_Label_sunrise, eventBuf);
+        snprintf(eventBuf, sizeof(eventBuf), "%s ↓", sunsetText);
+        lv_label_set_text(ui_Screen1_Label_sunset, eventBuf);
+        snprintf(eventBuf, sizeof(eventBuf), "%s ↑", moonriseText);
+        lv_label_set_text(ui_Screen1_Label_moonrise, eventBuf);
+        snprintf(eventBuf, sizeof(eventBuf), "%s ↓", moonsetText);
+        lv_label_set_text(ui_Screen1_Label_moonset, eventBuf);
 
-        lv_obj_clear_flag(ui_Screen1_Image_sun_moon, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_ADV_HITTEST);
         lv_obj_clear_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN);
 
         lastUpdateMs = nowMs;

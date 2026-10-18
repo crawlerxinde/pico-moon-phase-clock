@@ -2,6 +2,7 @@ screens/ui_Screen1.c
 ui.c
 components/ui_comp_hook.c
 ui_helpers.c
+calendar.c
 ui_events.c
 images/ui_img_368594647.c
 images/ui_img_moon_phase_moon_1_png.c
@@ -36,8 +37,15 @@ images/ui_img_moon_phase_moon_8_png.c
 images/ui_img_moon_phase_moon_9_png.c
 fonts/ui_font_SG28.c
 fonts/ui_font_SG50.c
-fonts/ui_font_SG72.c
-fonts/ui_font_Mono12.c
+fonts/ui_font_Inter66.c
+fonts/ui_font_FA14.c
+fonts/ui_font_Inter18.c
+fonts/ui_font_Inter15M.c
+fonts/ui_font_Inter15SB.c
+fonts/ui_font_Inter15R.c
+fonts/ui_font_Inter10M.c
+fonts/ui_font_Inter11R.c
+fonts/ui_font_Plex12.c
 fonts/ui_font_SR14.c
 fonts/ui_font_SR16.c
 fonts/ui_font_SR18.c

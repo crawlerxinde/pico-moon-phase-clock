@@ -5,7 +5,6 @@
 #include <hardware/clocks.h>
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "astronomy.h"
 #include "clock.h"
@@ -48,8 +47,6 @@ namespace
         lv_label_set_text(ui_Screen1_Label_moonrise, "--");
         lv_label_set_text(ui_Screen1_Label_moonset,  "--");
         lv_label_set_text(ui_Screen1_Label_Phase,    myCity);
-        lv_obj_clear_flag(ui_Screen1_Image_sun_moon,
-                          LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_ADV_HITTEST);
         lv_obj_clear_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN);
     }
 
@@ -214,25 +211,6 @@ namespace
                                       (unsigned)Display::flushCount(),
                                       (unsigned)Display::lastFlushWidth(),
                                       (unsigned)Display::lastFlushHeight());
-                        const char *cal = ui_Screen1_Label_Calendar
-                                              ? lv_label_get_text(ui_Screen1_Label_Calendar)
-                                              : "(null)";
-                        Serial.printf("CAL label=%p len=%u hidden=%d pos=%d,%d size=%dx%d hi_hidden=%d hi_pos=%d,%d text=%.24s\n",
-                                      (void *)ui_Screen1_Label_Calendar,
-                                      (unsigned)strlen(cal),
-                                      ui_Screen1_Label_Calendar
-                                          ? (lv_obj_has_flag(ui_Screen1_Label_Calendar, LV_OBJ_FLAG_HIDDEN) ? 1 : 0)
-                                          : -1,
-                                      ui_Screen1_Label_Calendar ? (int)lv_obj_get_x(ui_Screen1_Label_Calendar) : -1,
-                                      ui_Screen1_Label_Calendar ? (int)lv_obj_get_y(ui_Screen1_Label_Calendar) : -1,
-                                      ui_Screen1_Label_Calendar ? (int)lv_obj_get_width(ui_Screen1_Label_Calendar) : -1,
-                                      ui_Screen1_Label_Calendar ? (int)lv_obj_get_height(ui_Screen1_Label_Calendar) : -1,
-                                      ui_Screen1_Obj_CalendarToday
-                                          ? (lv_obj_has_flag(ui_Screen1_Obj_CalendarToday, LV_OBJ_FLAG_HIDDEN) ? 1 : 0)
-                                          : -1,
-                                      ui_Screen1_Obj_CalendarToday ? (int)lv_obj_get_x(ui_Screen1_Obj_CalendarToday) : -1,
-                                      ui_Screen1_Obj_CalendarToday ? (int)lv_obj_get_y(ui_Screen1_Obj_CalendarToday) : -1,
-                                      cal);
                     } else if (*line == 'D' || *line == 'd') {
                         Display::fillPanelPortrait();
                         delay(5000);

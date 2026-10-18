@@ -3,16 +3,26 @@
 // LVGL version: 8.3.11
 // Project name: moon phase
 //
-// Three-column layout for the 640x172 panel:
+// Visual refresh based on the minimal black dashboard mock:
 //   left   : moon image
-//   centre : time / date / location
-//   right  : moonrise/moonset and sunrise/sunset around the sun/moon icon
+//   centre : Inter time, divider, date, rounded location pill
+//   right  : month calendar, moon/sun rise/set rows with mono times
 //
-// The Space Grotesk / SR font families are retained.  The time uses a
-// generated 72 px Space Grotesk Light face so it fills the centre column;
-// the extra width is used for a dedicated rise/set column.
+// The calendar itself is created by calendar.c.
 
 #include "../ui.h"
+
+static lv_obj_t *ui_line(lv_obj_t *parent, int x, int y, int w, int h)
+{
+    lv_obj_t *line = lv_obj_create(parent);
+    lv_obj_remove_style_all(line);
+    lv_obj_set_pos(line, x, y);
+    lv_obj_set_size(line, w, h);
+    lv_obj_set_style_bg_color(line, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_bg_opa(line, 255, 0);
+    lv_obj_clear_flag(line, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    return line;
+}
 
 void ui_Screen1_screen_init(void)
 {
@@ -42,133 +52,142 @@ lv_obj_clear_flag( ui_Screen1_Container_Container, LV_OBJ_FLAG_CLICKABLE | LV_OB
 
 ui_Screen1_Label_time = lv_label_create(ui_Screen1_Container_Container);
 lv_obj_set_width( ui_Screen1_Label_time, 200);
-lv_obj_set_height( ui_Screen1_Label_time, 80);
-lv_obj_set_x( ui_Screen1_Label_time, -2 );
-lv_obj_set_y( ui_Screen1_Label_time, -4 );
+lv_obj_set_height( ui_Screen1_Label_time, 84);
+lv_obj_set_x( ui_Screen1_Label_time, 0 );
+lv_obj_set_y( ui_Screen1_Label_time, 8 );
 lv_label_set_text(ui_Screen1_Label_time,"");
-lv_obj_set_style_text_align(ui_Screen1_Label_time, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_time, &ui_font_SG72, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_align(ui_Screen1_Label_time, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_time, &ui_font_Inter66, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_ampm = lv_label_create(ui_Screen1_Container_Container);
 lv_obj_set_width( ui_Screen1_Label_ampm, 38);
-lv_obj_set_height( ui_Screen1_Label_ampm, 20);
-lv_obj_set_x( ui_Screen1_Label_ampm, 202 );
-lv_obj_set_y( ui_Screen1_Label_ampm, 8 );
+lv_obj_set_height( ui_Screen1_Label_ampm, 18);
+lv_obj_set_x( ui_Screen1_Label_ampm, 200 );
+lv_obj_set_y( ui_Screen1_Label_ampm, 16 );
 lv_label_set_text(ui_Screen1_Label_ampm,"");
 lv_obj_set_style_text_align(ui_Screen1_Label_ampm, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_ampm, &ui_font_SR18, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_ampm, &ui_font_Inter15M, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_sec = lv_label_create(ui_Screen1_Container_Container);
 lv_obj_set_width( ui_Screen1_Label_sec, 38);
-lv_obj_set_height( ui_Screen1_Label_sec, 20);
-lv_obj_set_x( ui_Screen1_Label_sec, 202 );
-lv_obj_set_y( ui_Screen1_Label_sec, 32 );
+lv_obj_set_height( ui_Screen1_Label_sec, 22);
+lv_obj_set_x( ui_Screen1_Label_sec, 200 );
+lv_obj_set_y( ui_Screen1_Label_sec, 46 );
 lv_label_set_text(ui_Screen1_Label_sec,"");
 lv_obj_set_style_text_align(ui_Screen1_Label_sec, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_sec, &ui_font_SR18, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_sec, &ui_font_Inter18, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_color(ui_Screen1_Label_sec, lv_color_hex(0xAAAAAA), LV_PART_MAIN| LV_STATE_DEFAULT);
+
+ui_line(ui_Screen1_Container_Container, 0, 90, 248, 1);
 
 ui_Screen1_Label_date = lv_label_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Label_date, 232);
-lv_obj_set_height( ui_Screen1_Label_date, 22);
-lv_obj_set_x( ui_Screen1_Label_date, 8 );
-lv_obj_set_y( ui_Screen1_Label_date, 80 );
-lv_label_set_long_mode(ui_Screen1_Label_date,LV_LABEL_LONG_SCROLL_CIRCULAR);
+lv_obj_set_width( ui_Screen1_Label_date, 248);
+lv_obj_set_height( ui_Screen1_Label_date, 24);
+lv_obj_set_x( ui_Screen1_Label_date, 0 );
+lv_obj_set_y( ui_Screen1_Label_date, 96 );
+lv_label_set_long_mode(ui_Screen1_Label_date,LV_LABEL_LONG_CLIP);
 lv_label_set_text(ui_Screen1_Label_date,"");
 lv_obj_set_style_text_align(ui_Screen1_Label_date, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_date, &ui_font_SR18, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_date, &ui_font_Inter18, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Panel_border = lv_obj_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Panel_border, 212);
-lv_obj_set_height( ui_Screen1_Panel_border, 27);
-lv_obj_set_x( ui_Screen1_Panel_border, 18 );
-lv_obj_set_y( ui_Screen1_Panel_border, 106 );
+lv_obj_remove_style_all(ui_Screen1_Panel_border);
+lv_obj_set_width( ui_Screen1_Panel_border, 200);
+lv_obj_set_height( ui_Screen1_Panel_border, 28);
+lv_obj_set_x( ui_Screen1_Panel_border, 24 );
+lv_obj_set_y( ui_Screen1_Panel_border, 124 );
 lv_obj_set_align( ui_Screen1_Panel_border, LV_ALIGN_TOP_LEFT );
 lv_obj_add_flag( ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN );   /// Flags
-lv_obj_clear_flag( ui_Screen1_Panel_border, LV_OBJ_FLAG_SCROLLABLE );    /// Flags
-lv_obj_set_style_radius(ui_Screen1_Panel_border, 0, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_bg_color(ui_Screen1_Panel_border, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT );
+lv_obj_clear_flag( ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE );    /// Flags
+lv_obj_set_style_radius(ui_Screen1_Panel_border, 14, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_bg_color(ui_Screen1_Panel_border, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT );
 lv_obj_set_style_bg_opa(ui_Screen1_Panel_border, 0, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_border_color(ui_Screen1_Panel_border, lv_color_hex(0x888888), LV_PART_MAIN | LV_STATE_DEFAULT );
+lv_obj_set_style_border_color(ui_Screen1_Panel_border, lv_color_hex(0x666666), LV_PART_MAIN | LV_STATE_DEFAULT );
 lv_obj_set_style_border_opa(ui_Screen1_Panel_border, 255, LV_PART_MAIN| LV_STATE_DEFAULT);
 lv_obj_set_style_border_width(ui_Screen1_Panel_border, 1, LV_PART_MAIN| LV_STATE_DEFAULT);
 lv_obj_set_style_pad_all(ui_Screen1_Panel_border, 0, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_flex_flow(ui_Screen1_Panel_border, LV_FLEX_FLOW_ROW);
+lv_obj_set_flex_align(ui_Screen1_Panel_border, LV_FLEX_ALIGN_CENTER,
+                      LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+lv_obj_set_style_pad_column(ui_Screen1_Panel_border, 8, LV_PART_MAIN| LV_STATE_DEFAULT);
+
+lv_obj_t *pin = lv_label_create(ui_Screen1_Panel_border);
+lv_label_set_text(pin, "\xEF\x81\x81");
+lv_obj_set_style_text_font(pin, &ui_font_FA14, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_color(pin, lv_color_hex(0xFFFFFF), LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_Phase = lv_label_create(ui_Screen1_Panel_border);
-lv_obj_set_width( ui_Screen1_Label_Phase, 212);
-lv_obj_set_height( ui_Screen1_Label_Phase, 21);
-lv_obj_set_x( ui_Screen1_Label_Phase, 0 );
-lv_obj_set_y( ui_Screen1_Label_Phase, 3 );
-lv_obj_set_align( ui_Screen1_Label_Phase, LV_ALIGN_TOP_LEFT );
+lv_obj_set_width( ui_Screen1_Label_Phase, LV_SIZE_CONTENT);
+lv_obj_set_height( ui_Screen1_Label_Phase, 20);
 lv_label_set_text(ui_Screen1_Label_Phase,"");
 lv_obj_set_style_text_align(ui_Screen1_Label_Phase, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_Phase, &ui_font_SR18, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_Phase, &ui_font_Inter15M, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_color(ui_Screen1_Label_Phase, lv_color_hex(0xDDDDDD), LV_PART_MAIN| LV_STATE_DEFAULT);
+
+ui_line(ui_Screen1_Container_Container, 248, 6, 1, 160);
+
+Calendar_Init(ui_Screen1_Container_Container);
+
+lv_obj_t *moon_icon = lv_label_create(ui_Screen1_Container_Container);
+lv_label_set_text(moon_icon, "\xEF\x86\x86");
+lv_obj_set_width( moon_icon, 21);
+lv_obj_set_height( moon_icon, 22);
+lv_obj_set_x( moon_icon, 256 );
+lv_obj_set_y( moon_icon, 120 );
+lv_obj_set_style_text_align(moon_icon, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(moon_icon, &ui_font_FA14, LV_PART_MAIN| LV_STATE_DEFAULT);
+
+lv_obj_t *sun_icon = lv_label_create(ui_Screen1_Container_Container);
+lv_label_set_text(sun_icon, "\xEF\x86\x85");
+lv_obj_set_width( sun_icon, 21);
+lv_obj_set_height( sun_icon, 22);
+lv_obj_set_x( sun_icon, 256 );
+lv_obj_set_y( sun_icon, 148 );
+lv_obj_set_style_text_align(sun_icon, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(sun_icon, &ui_font_FA14, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_moonrise = lv_label_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Label_moonrise, 76);
+lv_obj_set_width( ui_Screen1_Label_moonrise, 64);
 lv_obj_set_height( ui_Screen1_Label_moonrise, 18);
-lv_obj_set_x( ui_Screen1_Label_moonrise, 256 );
+lv_obj_set_x( ui_Screen1_Label_moonrise, 282 );
 lv_obj_set_y( ui_Screen1_Label_moonrise, 120 );
 lv_label_set_text(ui_Screen1_Label_moonrise,"");
-lv_obj_set_style_text_align(ui_Screen1_Label_moonrise, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_moonrise, &ui_font_SR16, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_align(ui_Screen1_Label_moonrise, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_moonrise, &ui_font_Plex12, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_moonset = lv_label_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Label_moonset, 76);
+lv_obj_set_width( ui_Screen1_Label_moonset, 64);
 lv_obj_set_height( ui_Screen1_Label_moonset, 18);
-lv_obj_set_x( ui_Screen1_Label_moonset, 383 );
+lv_obj_set_x( ui_Screen1_Label_moonset, 368 );
 lv_obj_set_y( ui_Screen1_Label_moonset, 120 );
 lv_label_set_text(ui_Screen1_Label_moonset,"");
 lv_obj_set_style_text_align(ui_Screen1_Label_moonset, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_moonset, &ui_font_SR16, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_moonset, &ui_font_Plex12, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_sunrise = lv_label_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Label_sunrise, 76);
+lv_obj_set_width( ui_Screen1_Label_sunrise, 64);
 lv_obj_set_height( ui_Screen1_Label_sunrise, 18);
-lv_obj_set_x( ui_Screen1_Label_sunrise, 256 );
-lv_obj_set_y( ui_Screen1_Label_sunrise, 144 );
+lv_obj_set_x( ui_Screen1_Label_sunrise, 282 );
+lv_obj_set_y( ui_Screen1_Label_sunrise, 148 );
 lv_label_set_text(ui_Screen1_Label_sunrise,"");
-lv_obj_set_style_text_align(ui_Screen1_Label_sunrise, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_sunrise, &ui_font_SR16, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_align(ui_Screen1_Label_sunrise, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_sunrise, &ui_font_Plex12, LV_PART_MAIN| LV_STATE_DEFAULT);
 
 ui_Screen1_Label_sunset = lv_label_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Label_sunset, 76);
+lv_obj_set_width( ui_Screen1_Label_sunset, 64);
 lv_obj_set_height( ui_Screen1_Label_sunset, 18);
-lv_obj_set_x( ui_Screen1_Label_sunset, 383 );
-lv_obj_set_y( ui_Screen1_Label_sunset, 144 );
+lv_obj_set_x( ui_Screen1_Label_sunset, 368 );
+lv_obj_set_y( ui_Screen1_Label_sunset, 148 );
 lv_label_set_text(ui_Screen1_Label_sunset,"");
 lv_obj_set_style_text_align(ui_Screen1_Label_sunset, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_sunset, &ui_font_SR16, LV_PART_MAIN| LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui_Screen1_Label_sunset, &ui_font_Plex12, LV_PART_MAIN| LV_STATE_DEFAULT);
 
-ui_Screen1_Obj_CalendarToday = lv_obj_create(ui_Screen1_Container_Container);
-lv_obj_remove_style_all(ui_Screen1_Obj_CalendarToday);
-lv_obj_set_pos( ui_Screen1_Obj_CalendarToday, 278, 0 );
-lv_obj_set_size( ui_Screen1_Obj_CalendarToday, 20, 14 );
-lv_obj_add_flag( ui_Screen1_Obj_CalendarToday, LV_OBJ_FLAG_HIDDEN );
-lv_obj_clear_flag( ui_Screen1_Obj_CalendarToday, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE );
-lv_obj_set_style_bg_color(ui_Screen1_Obj_CalendarToday, lv_color_hex(0x333333), LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_bg_opa(ui_Screen1_Obj_CalendarToday, 255, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_radius(ui_Screen1_Obj_CalendarToday, 2, LV_PART_MAIN| LV_STATE_DEFAULT);
+ui_line(ui_Screen1_Container_Container, 358, 120, 1, 50);
 
-ui_Screen1_Label_Calendar = lv_label_create(ui_Screen1_Container_Container);
-lv_obj_set_width( ui_Screen1_Label_Calendar, 160);
-lv_obj_set_height( ui_Screen1_Label_Calendar, 112);
-lv_obj_set_x( ui_Screen1_Label_Calendar, 278 );
-lv_obj_set_y( ui_Screen1_Label_Calendar, 0 );
-lv_label_set_long_mode(ui_Screen1_Label_Calendar,LV_LABEL_LONG_CLIP);
-lv_label_set_text(ui_Screen1_Label_Calendar,"");
-lv_obj_set_style_text_align(ui_Screen1_Label_Calendar, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_font(ui_Screen1_Label_Calendar, &ui_font_Mono12, LV_PART_MAIN| LV_STATE_DEFAULT);
-lv_obj_set_style_text_line_space(ui_Screen1_Label_Calendar, 0, LV_PART_MAIN| LV_STATE_DEFAULT);
-
-ui_Screen1_Image_sun_moon = lv_img_create(ui_Screen1_Container_Container);
-lv_img_set_src(ui_Screen1_Image_sun_moon, &ui_img_368594647);
-lv_obj_set_width( ui_Screen1_Image_sun_moon, LV_SIZE_CONTENT);  /// 39
-lv_obj_set_height( ui_Screen1_Image_sun_moon, LV_SIZE_CONTENT);   /// 45
-lv_obj_set_x( ui_Screen1_Image_sun_moon, 338 );
-lv_obj_set_y( ui_Screen1_Image_sun_moon, 112 );
-lv_obj_set_align( ui_Screen1_Image_sun_moon, LV_ALIGN_TOP_LEFT );
-lv_obj_add_flag( ui_Screen1_Image_sun_moon, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_ADV_HITTEST );   /// Flags
-lv_obj_clear_flag( ui_Screen1_Image_sun_moon, LV_OBJ_FLAG_SCROLLABLE );    /// Flags
+/* Dashed separator between the moon and sun rows. */
+for (int i = 0; i < 17; i++) {
+    ui_line(ui_Screen1_Container_Container, 256 + i * 12, 145, 8, 1);
+}
 
 ui_Screen1_Image_bootscreeni = lv_img_create(ui_Screen1);
 lv_obj_set_width( ui_Screen1_Image_bootscreeni, 170);

@@ -28,6 +28,8 @@ extern "C" {
 void moon_Animation( lv_obj_t *TargetObject, int delay);
 // SCREEN: ui_Screen1
 void ui_Screen1_screen_init(void);
+void Calendar_Init(lv_obj_t *parent);
+void Calendar_Update(int year, int month, int day);
 extern lv_obj_t *ui_Screen1;
 extern lv_obj_t *ui_Screen1_Label_bootscreen;
 extern lv_obj_t *ui_Screen1_Container_Container;
@@ -37,13 +39,10 @@ extern lv_obj_t *ui_Screen1_Label_moonrise;
 extern lv_obj_t *ui_Screen1_Label_moonset;
 extern lv_obj_t *ui_Screen1_Label_Phase;
 extern lv_obj_t *ui_Screen1_Panel_border;
-extern lv_obj_t *ui_Screen1_Label_Calendar;
-extern lv_obj_t *ui_Screen1_Obj_CalendarToday;
 extern lv_obj_t *ui_Screen1_Label_date;
 extern lv_obj_t *ui_Screen1_Label_sec;
 extern lv_obj_t *ui_Screen1_Label_ampm;
 extern lv_obj_t *ui_Screen1_Label_time;
-extern lv_obj_t *ui_Screen1_Image_sun_moon;
 extern lv_obj_t *ui_Screen1_Image_bootscreeni;
 extern lv_obj_t *ui_Screen1_Image_Moon;
 extern lv_obj_t *ui_Startevents____initial_actions0;
@@ -83,8 +82,15 @@ LV_IMG_DECLARE( ui_img_moon_phase_moon_9_png);   // assets/Moon_Phase/Moon_9.png
 
 LV_FONT_DECLARE( ui_font_SG28);
 LV_FONT_DECLARE( ui_font_SG50);
-LV_FONT_DECLARE( ui_font_SG72);
-LV_FONT_DECLARE( ui_font_Mono12);
+LV_FONT_DECLARE( ui_font_Inter66);
+LV_FONT_DECLARE( ui_font_FA14);
+LV_FONT_DECLARE( ui_font_Inter18);
+LV_FONT_DECLARE( ui_font_Inter15M);
+LV_FONT_DECLARE( ui_font_Inter15SB);
+LV_FONT_DECLARE( ui_font_Inter15R);
+LV_FONT_DECLARE( ui_font_Inter10M);
+LV_FONT_DECLARE( ui_font_Inter11R);
+LV_FONT_DECLARE( ui_font_Plex12);
 LV_FONT_DECLARE( ui_font_SR14);
 LV_FONT_DECLARE( ui_font_SR16);
 LV_FONT_DECLARE( ui_font_SR18);

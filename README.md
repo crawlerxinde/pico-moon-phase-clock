@@ -87,18 +87,19 @@ reference and are excluded from the build.
 | Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
 | Power button | SYS_OUT GPIO 38 (low = pressed) |
 
-The 640x172 panel uses a three-column layout based on the original GIF's
-fonts and visual hierarchy:
+The 640x172 panel uses a three-column layout based on the minimal black
+dashboard mock:
 
 * left: 170x170 moon phase image,
-* centre: 72 px Space Grotesk Light time, AM/PM, seconds, date and the bordered location box,
-* right: current-month calendar with today highlighted, then moonrise/moonset and
-  sunrise/sunset around the original arrow + sun/moon icon.
+* centre: Inter Light 66 px time, Inter Medium AM/PM, Inter Regular seconds/date,
+  and a rounded location pill with a map-pin icon,
+* right: Inter month calendar with today outlined, then IBM Plex Mono moonrise/
+  moonset and sunrise/sunset rows with separate moon/sun icons.
 
 The panel itself is driven in its native **172x640 portrait** orientation; the
 LVGL flush callback rotates the logical buffer into 172x640 blocks in software.
 This matches Waveshare's reference implementation and avoids relying on the
-panel's MADCTL rotation mode.  The bordered box shows `myCity` (for example
+panel's MADCTL rotation mode.  The location pill shows `myCity` (for example
 `Beijing`); the moon image itself shows the current phase.
 
 ## Configure
