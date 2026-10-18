@@ -46,6 +46,9 @@ namespace
     uint16_t      swipeStartY = 0;
     unsigned long swipeLastTouchMs = 0;
 
+    lv_obj_t     *brightnessHint = nullptr;
+    unsigned long brightnessHintUntil = 0;
+
     char serialBuf[64];
     size_t serialLen = 0;
 
@@ -180,6 +183,14 @@ namespace
                         if (next > 100) next = 100;
                         currentBrightness = (uint8_t)next;
                         LCD_SetBacklight(currentBrightness);
+                        if (brightnessHint) {
+                            char text[8];
+                            snprintf(text, sizeof(text), "%d%%", currentBrightness);
+                            lv_label_set_text(brightnessHint, text);
+                            lv_obj_clear_flag(brightnessHint, LV_OBJ_FLAG_HIDDEN);
+                            lv_obj_move_foreground(brightnessHint);
+                            brightnessHintUntil = millis() + 1200;
+                        }
                         Serial.printf("Brightness: %d%%\n", currentBrightness);
                     }
                 }
@@ -187,6 +198,15 @@ namespace
             swipeLastTouchMs = nowMs;
         } else if (swipeTouchActive && (nowMs - swipeLastTouchMs) > 300) {
             swipeTouchActive = false;
+        }
+    }
+
+    void updateBrightnessHint()
+    {
+        if (brightnessHint && brightnessHintUntil != 0 &&
+            millis() > brightnessHintUntil) {
+            lv_obj_add_flag(brightnessHint, LV_OBJ_FLAG_HIDDEN);
+            brightnessHintUntil = 0;
         }
     }
 
@@ -404,6 +424,19 @@ void setup()
     Battery::begin();
     ui_init();
 
+    brightnessHint = lv_label_create(ui_Screen1);
+    lv_obj_set_pos(brightnessHint, 8, 146);
+    lv_obj_set_size(brightnessHint, 66, 20);
+    lv_label_set_text(brightnessHint, "100%");
+    lv_obj_set_style_bg_color(brightnessHint, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(brightnessHint, 180, 0);
+    lv_obj_set_style_radius(brightnessHint, 6, 0);
+    lv_obj_set_style_pad_all(brightnessHint, 2, 0);
+    lv_obj_set_style_text_font(brightnessHint, &ui_font_Inter15M, 0);
+    lv_obj_set_style_text_color(brightnessHint, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_align(brightnessHint, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_add_flag(brightnessHint, LV_OBJ_FLAG_HIDDEN);
+
     lv_label_set_text(ui_Screen1_Label_bootscreen, "Moon Phase Clock");
     lv_obj_add_flag(ui_Screen1_Container_Container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_Screen1_Image_Moon, LV_OBJ_FLAG_HIDDEN);
@@ -431,6 +464,7 @@ void loop()
     Astronomy::update();
     Settings::update();
     handleSwipeGestures();
+    updateBrightnessHint();
     handleSerial();
     handlePowerButton();
 
