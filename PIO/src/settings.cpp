@@ -37,11 +37,9 @@ namespace
     lv_obj_t *batteryStatus = nullptr;
     lv_obj_t *batteryLevel = nullptr;
 
-    lv_obj_t *locationRoller = nullptr;
+    lv_obj_t *locationList = nullptr;
+    lv_obj_t *locationRow[256] = {nullptr};
     lv_obj_t *locationOffsetLabel = nullptr;
-    char locationOptions[6144];
-    int lastRollerIndex = -1;
-    unsigned long lastRollerChangeMs = 0;
 
     int selectedField = FIELD_MINUTE;
     bool openFlag = false;
@@ -249,21 +247,28 @@ namespace
 
     void refreshLocation()
     {
-        if (!locationRoller) return;
-        updateLocationOffset(lv_roller_get_selected(locationRoller));
+        int current = Location::index();
+        for (int i = 0; i < Location::count() && i < 256; i++) {
+            bool selected = (i == current);
+            lv_obj_set_style_bg_opa(locationRow[i], selected ? 255 : 0, 0);
+            lv_obj_set_style_bg_color(locationRow[i], lv_color_hex(0x333333), 0);
+            lv_obj_set_style_text_color(locationRow[i],
+                                        lv_color_hex(selected ? 0xFFFFFF : 0xCCCCCC), 0);
+        }
+        updateLocationOffset(current);
     }
 
     void refreshAll()
     {
-        if (locationRoller) {
-            int index = Location::index();
-            lv_roller_set_selected(locationRoller, index, LV_ANIM_OFF);
-            lastRollerIndex = index;
-            lastRollerChangeMs = millis();
-        }
         refreshDateTime();
         refreshBattery();
         refreshLocation();
+        if (locationList) {
+            int index = Location::index();
+            if (index >= 0 && index < 256 && locationRow[index]) {
+                lv_obj_scroll_to_view(locationRow[index], LV_ANIM_OFF);
+            }
+        }
         lastUiRefreshMs = millis();
         lastOffsetRefreshMs = millis();
     }
@@ -460,8 +465,8 @@ namespace Settings
         make_label(timePanel, 110, 99, 138, 18, "Tap field, then -/+",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
 
-        /* Location card: a roller can hold the full ~200-city dataset without
-         * creating hundreds of temporary LVGL objects. */
+        /* Location card: a scrollable list of the full ~200-city dataset.
+         * Beijing (index 0) starts at the top; tapping a row applies it. */
         lv_obj_t *locationPanel = make_panel(settingsScreen, 450, 36, 178, 130);
         make_label(locationPanel, 8, 6, 72, 14, "LOCATION",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
@@ -469,37 +474,41 @@ namespace Settings
                                          &ui_font_Inter10M, 0x888888,
                                          LV_TEXT_ALIGN_RIGHT);
 
-        locationRoller = lv_roller_create(locationPanel);
-        locationOptions[0] = '\0';
-        size_t used = 0;
-        for (int i = 0; i < Location::count(); i++) {
-            int written = snprintf(locationOptions + used,
-                                   sizeof(locationOptions) - used,
-                                   "%s%s", (i == 0) ? "" : "\n",
-                                   Location::at(i).name);
-            if (written <= 0) break;
-            used += (size_t)written;
-            if (used >= sizeof(locationOptions)) break;
+        locationList = lv_obj_create(locationPanel);
+        lv_obj_remove_style_all(locationList);
+        lv_obj_set_pos(locationList, 6, 20);
+        lv_obj_set_size(locationList, 166, 104);
+        lv_obj_add_flag(locationList, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scroll_dir(locationList, LV_DIR_VER);
+        lv_obj_set_scrollbar_mode(locationList, LV_SCROLLBAR_MODE_AUTO);
+        lv_obj_set_style_bg_opa(locationList, 0, 0);
+        lv_obj_set_style_pad_all(locationList, 0, 0);
+        lv_obj_set_style_width(locationList, 2, LV_PART_SCROLLBAR);
+        lv_obj_set_style_bg_color(locationList, lv_color_hex(0x444444),
+                                  LV_PART_SCROLLBAR);
+        lv_obj_set_style_bg_opa(locationList, 255, LV_PART_SCROLLBAR);
+
+        for (int i = 0; i < Location::count() && i < 256; i++) {
+            lv_obj_t *row = lv_label_create(locationList);
+            lv_obj_set_pos(row, 0, i * 17);
+            lv_obj_set_size(row, 160, 16);
+            lv_label_set_long_mode(row, LV_LABEL_LONG_CLIP);
+            lv_label_set_text(row, Location::at(i).name);
+            lv_obj_set_style_pad_left(row, 5, 0);
+            lv_obj_set_style_pad_top(row, 1, 0);
+            lv_obj_set_style_bg_opa(row, 0, 0);
+            lv_obj_set_style_bg_color(row, lv_color_hex(0x333333), 0);
+            lv_obj_set_style_radius(row, 3, 0);
+            lv_obj_set_style_text_font(row, &ui_font_Inter11R, 0);
+            lv_obj_set_style_text_color(row, lv_color_hex(0xCCCCCC), 0);
+            lv_obj_set_style_text_align(row, LV_TEXT_ALIGN_LEFT, 0);
+            lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_add_event_cb(row, [](lv_event_t *event) {
+                Settings::selectLocation((int)(intptr_t)lv_event_get_user_data(event));
+            }, LV_EVENT_CLICKED, (void *)(intptr_t)i);
+            locationRow[i] = row;
         }
-        lv_roller_set_options(locationRoller, locationOptions,
-                              LV_ROLLER_MODE_NORMAL);
-        lv_roller_set_visible_row_count(locationRoller, 6);
-        lv_obj_set_pos(locationRoller, 6, 20);
-        lv_obj_set_size(locationRoller, 166, 104);
-        lv_obj_set_style_bg_opa(locationRoller, 0, 0);
-        lv_obj_set_style_border_width(locationRoller, 0, 0);
-        lv_obj_set_style_text_font(locationRoller, &ui_font_Inter11R, 0);
-        lv_obj_set_style_text_color(locationRoller, lv_color_hex(0xCCCCCC), 0);
-        lv_obj_set_style_text_align(locationRoller, LV_TEXT_ALIGN_LEFT, 0);
-        lv_obj_set_style_text_line_space(locationRoller, 2, 0);
-        lv_obj_set_style_bg_color(locationRoller, lv_color_hex(0x333333),
-                                  LV_PART_SELECTED);
-        lv_obj_set_style_bg_opa(locationRoller, 255, LV_PART_SELECTED);
-        lv_obj_set_style_text_color(locationRoller, lv_color_hex(0xFFFFFF),
-                                    LV_PART_SELECTED);
-        lv_obj_set_style_radius(locationRoller, 4, LV_PART_SELECTED);
-        lv_obj_set_style_border_width(locationRoller, 0, LV_PART_SELECTED);
-        lv_obj_set_scrollbar_mode(locationRoller, LV_SCROLLBAR_MODE_OFF);
 
         /* Tap the location pill as a discoverable alternative to swiping. */
         lv_obj_add_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE);
@@ -528,15 +537,6 @@ namespace Settings
             lastOffsetRefreshMs = nowMs;
         }
 
-        int selected = lv_roller_get_selected(locationRoller);
-        if (selected != lastRollerIndex) {
-            lastRollerIndex = selected;
-            lastRollerChangeMs = nowMs;
-            updateLocationOffset(selected);
-        } else if (selected != Location::index() &&
-                   (nowMs - lastRollerChangeMs) >= 700) {
-            Settings::selectLocation(selected);
-        }
     }
 
     void show()

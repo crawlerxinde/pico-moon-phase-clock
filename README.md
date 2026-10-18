@@ -114,9 +114,8 @@ The Settings page contains:
 * **Date & time**: tap a field (year, month, day, hour, minute or second),
   then use `-` / `+` to adjust it.  Every change is written to the RTC
   immediately.  Invalid dates such as 31 February are rejected.
-* **Location**: about 200 cities in a scrollable roller, grouped
-  alphabetically after the original six (Beijing, Paris, London, New York,
-  Tokyo, Sydney).  The selection is stored in EEPROM.  Each city has its own
+* **Location**: about 200 cities in a scrollable list, grouped alphabetically
+  after the original six (Beijing, Paris, London, New York, Tokyo, Sydney).  The selection is stored in EEPROM.  Each city has its own
   coordinates and timezone/DST rule (EU, US, Australia, New Zealand and Chile
   rules are supported).  Changing city preserves the absolute UTC instant,
   rewrites the RTC in the new local time, updates the location pill and
