@@ -9,7 +9,7 @@ assert 'CAL_ROW_H   14' in cal
 assert 'lv_obj_set_style_bg_opa(cal_today, 0, 0);' in cal
 assert 'cal_prev' not in cal and 'cal_next' not in cal
 assert 'ui_font_Plex12' in ui
-assert '270 + i * 10, 146, 3, 1' in ui
+assert '270 + i * 8, 146, 4, 1' in ui
 for year in range(2024, 2041):
  for month in range(1, 13):
   start=date(year,month,1).weekday()

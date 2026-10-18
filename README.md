@@ -213,6 +213,22 @@ display controller's physical framebuffer.  It is useful for checking text,
 layout, moon images and values; it does not show panel-level color or rotation
 issues.
 
+## Make targets
+
+From the repository root:
+
+```bash
+make build       # PlatformIO build
+make test        # layout/geometry tests + Python syntax checks
+make flash       # build, flash, then sync the RTC from host local time
+make sync_time   # sync the RTC without flashing
+make sync_time TIME="2026-10-19 12:34:56"
+make clean
+```
+
+`make flash` waits for the board to boot and then runs the same RTC sync as
+`make sync_time`, so the clock should match the host immediately after flashing.
+
 ## Build and flash
 
 `PIO/platformio.ini` uses the Arduino-Pico fork with RP2350 support:
