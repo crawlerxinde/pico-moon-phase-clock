@@ -36,6 +36,8 @@ images/ui_img_moon_phase_moon_8_png.c
 images/ui_img_moon_phase_moon_9_png.c
 fonts/ui_font_SG28.c
 fonts/ui_font_SG50.c
+fonts/ui_font_SG72.c
+fonts/ui_font_Mono12.c
 fonts/ui_font_SR14.c
 fonts/ui_font_SR16.c
 fonts/ui_font_SR18.c

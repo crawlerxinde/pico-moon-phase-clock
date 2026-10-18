@@ -37,6 +37,8 @@ extern lv_obj_t *ui_Screen1_Label_moonrise;
 extern lv_obj_t *ui_Screen1_Label_moonset;
 extern lv_obj_t *ui_Screen1_Label_Phase;
 extern lv_obj_t *ui_Screen1_Panel_border;
+extern lv_obj_t *ui_Screen1_Label_Calendar;
+extern lv_obj_t *ui_Screen1_Obj_CalendarToday;
 extern lv_obj_t *ui_Screen1_Label_date;
 extern lv_obj_t *ui_Screen1_Label_sec;
 extern lv_obj_t *ui_Screen1_Label_ampm;
@@ -81,6 +83,8 @@ LV_IMG_DECLARE( ui_img_moon_phase_moon_9_png);   // assets/Moon_Phase/Moon_9.png
 
 LV_FONT_DECLARE( ui_font_SG28);
 LV_FONT_DECLARE( ui_font_SG50);
+LV_FONT_DECLARE( ui_font_SG72);
+LV_FONT_DECLARE( ui_font_Mono12);
 LV_FONT_DECLARE( ui_font_SR14);
 LV_FONT_DECLARE( ui_font_SR16);
 LV_FONT_DECLARE( ui_font_SR18);

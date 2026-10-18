@@ -43,6 +43,81 @@ namespace
         return wd;
     }
 
+    int daysInMonth(int y, int m)
+    {
+        static const int mdays[] = {31, 28, 31, 30, 31, 30,
+                                    31, 31, 30, 31, 30, 31};
+        if (m < 1 || m > 12) return 0;
+        int days = mdays[m - 1];
+        bool leap = (y % 4 == 0) && ((y % 100 != 0) || (y % 400 == 0));
+        if (m == 2 && leap) days = 29;
+        return days;
+    }
+
+    void updateCalendar(const Clock::DateTime &t)
+    {
+        if (!ui_Screen1_Label_Calendar || !ui_Screen1_Obj_CalendarToday) return;
+
+        static int lastY = -1, lastM = -1, lastD = -1;
+        if (t.year == lastY && t.month == lastM && t.day == lastD) return;
+        lastY = t.year;
+        lastM = t.month;
+        lastD = t.day;
+
+        const int days = daysInMonth(t.year, t.month);
+        if (days == 0) return;
+
+        /* Monday-first grid. */
+        const int first = (weekdayFromDate(t.year, t.month, 1) + 6) % 7;
+
+        char buf[256];
+        int n = 0;
+        n += snprintf(buf + n, sizeof(buf) - (size_t)n,
+                      "      %s %d\n", months[t.month - 1], t.year);
+        n += snprintf(buf + n, sizeof(buf) - (size_t)n,
+                      " Mo Tu We Th Fr Sa Su\n");
+
+        int day = 1;
+        for (int row = 0; row < 6 && day <= days; row++) {
+            for (int col = 0; col < 7; col++) {
+                if (row == 0 && col < first) {
+                    n += snprintf(buf + n, sizeof(buf) - (size_t)n, "   ");
+                } else if (day <= days) {
+                    n += snprintf(buf + n, sizeof(buf) - (size_t)n, "%2d ", day);
+                    day++;
+                } else {
+                    n += snprintf(buf + n, sizeof(buf) - (size_t)n, "   ");
+                }
+            }
+            n += snprintf(buf + n, sizeof(buf) - (size_t)n, "\n");
+        }
+
+        lv_label_set_text(ui_Screen1_Label_Calendar, buf);
+
+        const int idx = first + t.day - 1;
+        const int row = idx / 7;
+        const int col = idx % 7;
+
+        /* Fixed geometry of the 12 px monospaced calendar in ui_Screen1.c.
+         *
+         * 3 glyphs per day cell (two digits + space), 7 days per line,
+         * 14 px line height.  Using constants avoids reading stale layout
+         * values during Clock::begin(). */
+        constexpr lv_coord_t CAL_X = 278;
+        constexpr lv_coord_t CAL_Y = 0;
+        constexpr lv_coord_t CAL_W = 160;
+        constexpr lv_coord_t CELL_W = 21;
+        constexpr lv_coord_t LINE_H = 14;
+        constexpr lv_coord_t TEXT_W = CELL_W * 7;
+
+        const lv_coord_t x = CAL_X + (CAL_W - TEXT_W) / 2 + col * CELL_W;
+        const lv_coord_t y = CAL_Y + 2 * LINE_H + row * LINE_H;
+
+        lv_obj_set_pos(ui_Screen1_Obj_CalendarToday, x, y);
+        lv_obj_set_size(ui_Screen1_Obj_CalendarToday, CELL_W, LINE_H);
+        lv_obj_clear_flag(ui_Screen1_Obj_CalendarToday, LV_OBJ_FLAG_HIDDEN);
+    }
+
     void buildTime(Clock::DateTime &dt)
     {
         char mon[4] = {0};
@@ -119,6 +194,7 @@ namespace
         bool newDay = !haveTime || t.day != lastTime.day || t.month != lastTime.month ||
                       t.year != lastTime.year;
         if (newDay) dayChanged = true;
+        updateCalendar(t);
 
         lastTime = t;
         haveTime = true;
@@ -175,7 +251,7 @@ namespace Clock
         gpio_pull_up(RTC_SCL_PIN);
 
         /* CTRL1: normal mode, 24-hour, 12.5 pF internal load capacitance. */
-        uint8_t ctrl[2] = {0x00, 0x01};
+        uint8_t ctrl[2] = {0x01, 0x00};
         i2c_write_blocking(i2c1, RTC_ADDR, ctrl, sizeof(ctrl), false);
 
         DateTime dt;

@@ -6,7 +6,7 @@
 
 * 原项目使用 ESP32-S3 + WiFi + visualcrossing 天气 API；该开发板**没有 WiFi**，因此改为完全离线运行。
 * 时间来自板载 **PCF85063A RTC**；月相、日出/日落、月出/月落由本地天文算法计算。
-* 屏幕按 **640×172 横屏** 重新布局：左侧 170×170 月相图，右侧显示时间、日期、月相和升落时间。
+* 屏幕按 **640×172 横屏** 做三栏布局：左侧 170×170 月相图，中间时间/日期/地点，右侧月历、月升月落与日出日落。
 * 显示驱动使用 QSPI PIO + DMA；触摸使用 I2C0 轮询。
 * 原来的 ESP32 网络代码保留在 `PIO/src/legacy/`，不参与编译。
 
@@ -87,8 +87,14 @@ reference and are excluded from the build.
 | Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
 | Power button | SYS_OUT GPIO 38 (low = pressed) |
 
-The original project's **320x170 UI** is reproduced 1:1 and centred in the
-640x172 panel, so the fonts, spacing and rise/set rows match the original GIF.
+The 640x172 panel uses a three-column layout based on the original GIF's
+fonts and visual hierarchy:
+
+* left: 170x170 moon phase image,
+* centre: 72 px Space Grotesk Light time, AM/PM, seconds, date and the bordered location box,
+* right: current-month calendar with today highlighted, then moonrise/moonset and
+  sunrise/sunset around the original arrow + sun/moon icon.
+
 The panel itself is driven in its native **172x640 portrait** orientation; the
 LVGL flush callback rotates the logical buffer into 172x640 blocks in software.
 This matches Waveshare's reference implementation and avoids relying on the

@@ -20,6 +20,8 @@ lv_obj_t *ui_Screen1_Label_moonrise;
 lv_obj_t *ui_Screen1_Label_moonset;
 lv_obj_t *ui_Screen1_Label_Phase;
 lv_obj_t *ui_Screen1_Panel_border;
+lv_obj_t *ui_Screen1_Label_Calendar;
+lv_obj_t *ui_Screen1_Obj_CalendarToday;
 lv_obj_t *ui_Screen1_Label_date;
 lv_obj_t *ui_Screen1_Label_sec;
 lv_obj_t *ui_Screen1_Label_ampm;
