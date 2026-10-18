@@ -191,10 +191,7 @@ namespace
                 lv_obj_add_flag(batteryLevel, LV_OBJ_FLAG_HIDDEN);
             }
 
-            uint32_t color = 0x7ED957;
-            if (Battery::percent() <= 15) color = 0xFF5A5A;
-            else if (Battery::percent() <= 35) color = 0xFFB000;
-            lv_obj_set_style_bg_color(batteryLevel, lv_color_hex(color), 0);
+            lv_obj_set_style_bg_color(batteryLevel, lv_color_hex(0xFFFFFF), 0);
 
             int millivolts = (int)(Battery::voltage() * 1000.0f + 0.5f);
             char voltage[20];
@@ -473,7 +470,7 @@ namespace Settings
         lv_obj_remove_style_all(batteryLevel);
         lv_obj_set_pos(batteryLevel, 8, 86);
         lv_obj_set_size(batteryLevel, 0, 8);
-        lv_obj_set_style_bg_color(batteryLevel, lv_color_hex(0x7ED957), 0);
+        lv_obj_set_style_bg_color(batteryLevel, lv_color_hex(0xFFFFFF), 0);
         lv_obj_set_style_bg_opa(batteryLevel, 255, 0);
         lv_obj_set_style_radius(batteryLevel, 4, 0);
         lv_obj_clear_flag(batteryLevel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
