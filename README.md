@@ -107,7 +107,7 @@ panel's MADCTL rotation mode.  The location pill shows the current city
 
 On the clock face:
 
-* swipe **up / down** to increase / decrease brightness by 10% (clamped to 10–100%),
+* swipe **up / down** to increase / decrease brightness by 20% (clamped to 10–100%),
 * swipe **left or right** to open Settings (swipe either direction to return),
 * or tap the location pill to open Settings.
 

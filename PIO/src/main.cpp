@@ -40,6 +40,7 @@ namespace
      * vertical adjusts brightness.  Only one action is allowed per gesture. */
     constexpr int SWIPE_HORIZONTAL_PX = 100;
     constexpr int SWIPE_VERTICAL_PX   = 60;
+    constexpr int BRIGHTNESS_STEP     = 20;
     bool          swipeTouchActive = false;
     bool          swipeFired = false;
     uint16_t      swipeStartX = 0;
@@ -178,7 +179,7 @@ namespace
                            ady >= SWIPE_VERTICAL_PX && ady > adx) {
                     swipeFired = true;
                     if (screenOn) {
-                        int next = (int)currentBrightness + ((dy < 0) ? 10 : -10);
+                        int next = (int)currentBrightness + ((dy < 0) ? BRIGHTNESS_STEP : -BRIGHTNESS_STEP);
                         if (next < 10) next = 10;
                         if (next > 100) next = 100;
                         currentBrightness = (uint8_t)next;
