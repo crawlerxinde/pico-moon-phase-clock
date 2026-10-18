@@ -10,6 +10,7 @@
 
 #include "astronomy.h"
 #include "battery.h"
+#include "brightness.h"
 #include "clock.h"
 #include "location.h"
 
@@ -35,6 +36,9 @@ namespace
     lv_obj_t *batteryVolt = nullptr;
     lv_obj_t *batteryStatus = nullptr;
     lv_obj_t *batteryLevel = nullptr;
+
+    lv_obj_t *brightnessSlider = nullptr;
+    lv_obj_t *brightnessValueLabel = nullptr;
 
     lv_obj_t *locationList = nullptr;
     lv_obj_t *locationRow[256] = {nullptr};
@@ -249,11 +253,24 @@ namespace
         updateLocationOffset(current);
     }
 
+    void refreshBrightnessControl()
+    {
+        if (!brightnessSlider) return;
+        int value = Brightness::current();
+        if (lv_slider_get_value(brightnessSlider) != value) {
+            lv_slider_set_value(brightnessSlider, value, LV_ANIM_OFF);
+        }
+        char text[8];
+        snprintf(text, sizeof(text), "%d%%", value);
+        lv_label_set_text(brightnessValueLabel, text);
+    }
+
     void refreshAll()
     {
         refreshDateTime();
         refreshBattery();
         refreshLocation();
+        refreshBrightnessControl();
         if (locationList) {
             int index = Location::index();
             if (index >= 0 && index < 256 && locationRow[index]) {
@@ -355,7 +372,44 @@ namespace Settings
         lv_obj_set_style_bg_opa(settingsScreen, 255, 0);
         make_label(settingsScreen, 12, 5, 120, 22, "Settings",
                    &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        make_label(settingsScreen, 360, 8, 268, 16, "Swipe right to return",
+        make_label(settingsScreen, 148, 8, 68, 16, "BRIGHTNESS",
+                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
+
+        brightnessSlider = lv_slider_create(settingsScreen);
+        lv_obj_set_pos(brightnessSlider, 220, 9);
+        lv_obj_set_size(brightnessSlider, 92, 14);
+        lv_slider_set_range(brightnessSlider, 10, 100);
+        lv_slider_set_value(brightnessSlider, Brightness::current(), LV_ANIM_OFF);
+        lv_obj_set_ext_click_area(brightnessSlider, 6);
+        lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0x333333),
+                                  LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_MAIN);
+        lv_obj_set_style_radius(brightnessSlider, 7, LV_PART_MAIN);
+        lv_obj_set_style_border_width(brightnessSlider, 0, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0xBBBBBB),
+                                  LV_PART_INDICATOR);
+        lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_INDICATOR);
+        lv_obj_set_style_radius(brightnessSlider, 7, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0xFFFFFF),
+                                  LV_PART_KNOB);
+        lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_KNOB);
+        lv_obj_set_style_pad_all(brightnessSlider, 0, LV_PART_KNOB);
+        lv_obj_set_style_radius(brightnessSlider, LV_RADIUS_CIRCLE,
+                                LV_PART_KNOB);
+        lv_obj_add_event_cb(brightnessSlider, [](lv_event_t *event) {
+            lv_obj_t *slider = lv_event_get_target(event);
+            int value = lv_slider_get_value(slider);
+            Brightness::set(value);
+            char text[8];
+            snprintf(text, sizeof(text), "%d%%", Brightness::current());
+            lv_label_set_text(brightnessValueLabel, text);
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+
+        brightnessValueLabel = make_label(settingsScreen, 316, 8, 44, 16, "100%",
+                                          &ui_font_Inter10M, 0xCCCCCC,
+                                          LV_TEXT_ALIGN_RIGHT);
+
+        make_label(settingsScreen, 400, 8, 228, 16, "Swipe right to return",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_RIGHT);
 
         lv_obj_t *headerLine = lv_obj_create(settingsScreen);
@@ -493,6 +547,7 @@ namespace Settings
         if (nowMs - lastUiRefreshMs >= 250) {
             refreshDateTime();
             refreshBattery();
+            refreshBrightnessControl();
             lastUiRefreshMs = nowMs;
         }
 

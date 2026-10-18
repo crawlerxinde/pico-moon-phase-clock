@@ -9,6 +9,7 @@
 
 #include "astronomy.h"
 #include "battery.h"
+#include "brightness.h"
 #include "clock.h"
 #include "credential.h"
 #include "display.h"
@@ -33,8 +34,6 @@ namespace
     bool          buttonWasDown = false;
     bool          buttonIgnoreUntilRelease = false;
     bool          displayFlipped = false;
-    bool          screenOn = true;
-    uint8_t       currentBrightness = defaultBrightness;
 
     /* Single gesture state machine: horizontal opens/closes Settings,
      * vertical adjusts brightness.  Only one action is allowed per gesture. */
@@ -143,7 +142,7 @@ namespace
     {
         Serial.println("Power off");
         Serial.flush();
-        LCD_SetBacklight(0);
+        Brightness::forceOff();
         digitalWrite(POWER_LATCH_PIN, LOW);
 
         /* If the board is USB-powered the latch cannot cut power.  Wait for
@@ -178,21 +177,17 @@ namespace
                 } else if (!Settings::isOpen() &&
                            ady >= SWIPE_VERTICAL_PX && ady > adx) {
                     swipeFired = true;
-                    if (screenOn) {
-                        int next = (int)currentBrightness + ((dy < 0) ? BRIGHTNESS_STEP : -BRIGHTNESS_STEP);
-                        if (next < 10) next = 10;
-                        if (next > 100) next = 100;
-                        currentBrightness = (uint8_t)next;
-                        LCD_SetBacklight(currentBrightness);
+                    if (Brightness::screenOn()) {
+                        Brightness::adjust((dy < 0) ? BRIGHTNESS_STEP : -BRIGHTNESS_STEP);
                         if (brightnessHint) {
                             char text[8];
-                            snprintf(text, sizeof(text), "%d%%", currentBrightness);
+                            snprintf(text, sizeof(text), "%d%%", Brightness::current());
                             lv_label_set_text(brightnessHint, text);
                             lv_obj_clear_flag(brightnessHint, LV_OBJ_FLAG_HIDDEN);
                             lv_obj_move_foreground(brightnessHint);
                             brightnessHintUntil = millis() + 1200;
                         }
-                        Serial.printf("Brightness: %d%%\n", currentBrightness);
+                        Serial.printf("Brightness: %d%%\n", Brightness::current());
                     }
                 }
             }
@@ -230,9 +225,9 @@ namespace
             buttonWasDown = false;
             unsigned long duration = now - buttonDownMs;
             if (duration >= POWER_SHORT_MS && duration < POWER_LONG_MS) {
-                screenOn = !screenOn;
-                LCD_SetBacklight(screenOn ? currentBrightness : 0);
-                Serial.printf("Screen: %s\n", screenOn ? "on" : "off");
+                Brightness::toggleScreen();
+                Serial.printf("Screen: %s\n",
+                              Brightness::screenOn() ? "on" : "off");
             }
         } else if (down && buttonWasDown &&
                    (now - buttonDownMs) >= POWER_LONG_MS) {
@@ -289,10 +284,10 @@ namespace
                         int percent = atoi(line + 1);
                         if (percent < 0) percent = 0;
                         if (percent > 100) percent = 100;
-                        currentBrightness = (uint8_t)percent;
-                        if (screenOn) LCD_SetBacklight(currentBrightness);
-                        Serial.printf("Backlight: %d%% (%s)\n", percent,
-                                      screenOn ? "on" : "off");
+                        Brightness::set(percent);
+                        Serial.printf("Backlight: %d%% (%s)\n",
+                                      Brightness::current(),
+                                      Brightness::screenOn() ? "on" : "off");
                     } else if (*line == 'F' || *line == 'f') {
                         displayFlipped = !displayFlipped;
                         Display::setFlipped(displayFlipped);
@@ -421,6 +416,7 @@ void setup()
     Serial.println("Moon Phase Clock for RP2350-Touch-LCD-3.49");
 
     Display::begin();
+    Brightness::begin(defaultBrightness);
     Location::begin();
     Battery::begin();
     ui_init();
@@ -450,7 +446,7 @@ void setup()
 
     /* Paint one complete frame before turning the backlight on. */
     lv_refr_now(NULL);
-    LCD_SetBacklight(currentBrightness);
+    Brightness::apply();
 
     bootStartMs = millis();
     printHelp();

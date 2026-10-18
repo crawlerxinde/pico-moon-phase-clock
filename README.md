@@ -115,6 +115,8 @@ The Settings page contains:
 
 * **Battery**: voltage on GPIO40/ADC0 (3:1 divider), percentage and bar.
   With USB power and no 18650 installed the page shows `USB / No battery`.
+* **Brightness**: slider at the top of Settings (10–100%); it shares the same
+  value as the clock-page vertical swipe and the serial `B` command.
 * **Date & time**: tap a field (year, month, day, hour, minute or second),
   then use `-` / `+` to adjust it.  Every change is written to the RTC
   immediately.  Invalid dates such as 31 February are rejected.
