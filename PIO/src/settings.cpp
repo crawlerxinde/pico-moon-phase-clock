@@ -14,6 +14,7 @@
 #include "brightness.h"
 #include "clock.h"
 #include "location.h"
+#include "moon_intro.h"
 
 namespace
 {
@@ -598,6 +599,7 @@ namespace Settings
         if (!settingsScreen || !openFlag) return;
         openFlag = false;
         lv_scr_load_anim(ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
+        MoonIntro::play();
     }
 
     bool isOpen()
