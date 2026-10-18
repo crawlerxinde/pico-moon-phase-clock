@@ -5,6 +5,7 @@
 
 #include "clock.h"
 #include "credential.h"
+#include "location_data.h"
 
 namespace
 {
@@ -18,28 +19,6 @@ namespace
         uint8_t  index;
         uint16_t reserved;
     };
-
-    struct CityRecord
-    {
-        const char *name;
-        float       lat;
-        float       lon;
-        int         stdOffsetSec;
-        int         dstRule;
-    };
-
-    /* The first entry follows the defaults in credential.h so the original
-     * Beijing configuration remains the power-on default. */
-    const CityRecord kCities[] = {
-        {myCity, myLat, myLon, (int)gmtOffset_sec, 0}, // Beijing / UTC+8
-        {"Paris",    48.8566f,   2.3522f,   1 * 3600,  1},
-        {"London",   51.5074f,  -0.1278f,   0,         1},
-        {"New York", 40.7128f, -74.0060f,  -5 * 3600,  2},
-        {"Tokyo",    35.6762f, 139.6503f,   9 * 3600,  0},
-        {"Sydney",  -33.8688f, 151.2093f,  10 * 3600,  3},
-    };
-
-    constexpr int kCityCount = (int)(sizeof(kCities) / sizeof(kCities[0]));
 
     int currentIndex = 0;
 
@@ -62,6 +41,13 @@ namespace
     {
         int day = 1;
         while (weekdayOf(year, month, day) != 0) day++;
+        return day;
+    }
+
+    int lastWeekday(int year, int month, int weekday)
+    {
+        int day = Clock::daysInMonth(year, month);
+        while (weekdayOf(year, month, day) != weekday) day--;
         return day;
     }
 
@@ -91,6 +77,24 @@ namespace
             if (month == 10) return day >= firstSunday(year, 10);
             return day < firstSunday(year, 4);
 
+        case 4: // New Zealand: last Sunday September -> first Sunday April
+            if (month > 9 || month < 4) return true;
+            if (month > 4 && month < 9) return false;
+            if (month == 9) return day >= lastSunday(year, 9);
+            return day < firstSunday(year, 4);
+
+        case 5: // Chile: first Sunday September -> first Sunday April
+            if (month > 9 || month < 4) return true;
+            if (month > 4 && month < 9) return false;
+            if (month == 9) return day >= firstSunday(year, 9);
+            return day < firstSunday(year, 4);
+
+        case 6: // Egypt: last Friday April -> last Thursday October
+            if (month > 4 && month < 10) return true;
+            if (month < 4 || month > 10) return false;
+            if (month == 4) return day >= lastWeekday(year, 4, 5);
+            return day <= lastWeekday(year, 10, 4);
+
         default:
             return false;
         }
@@ -113,7 +117,7 @@ namespace Location
 {
     int count()
     {
-        return kCityCount;
+        return kLocationCityCount;
     }
 
     void begin()
@@ -124,7 +128,7 @@ namespace Location
         EEPROM.get(0, settings);
         if (settings.magic == kSettingsMagic &&
             settings.version == kSettingsVersion &&
-            settings.index < kCityCount) {
+            settings.index < kLocationCityCount) {
             currentIndex = settings.index;
         } else {
             currentIndex = 0;
@@ -144,19 +148,28 @@ namespace Location
 
     const City &at(int index)
     {
-        if (index < 0 || index >= kCityCount) index = currentIndex;
+        if (index < 0 || index >= kLocationCityCount) index = currentIndex;
         static City city;
-        city.name         = kCities[index].name;
-        city.lat          = kCities[index].lat;
-        city.lon          = kCities[index].lon;
-        city.stdOffsetSec = kCities[index].stdOffsetSec;
-        city.dstRule      = (uint8_t)kCities[index].dstRule;
+        if (index == 0) {
+            /* Keep credential.h as the user-editable default location. */
+            city.name         = myCity;
+            city.lat          = myLat;
+            city.lon          = myLon;
+            city.stdOffsetSec = (int)gmtOffset_sec;
+            city.dstRule      = 0;
+        } else {
+            city.name         = kLocationCities[index].name;
+            city.lat          = kLocationCities[index].lat;
+            city.lon          = kLocationCities[index].lon;
+            city.stdOffsetSec = kLocationCities[index].stdOffsetSec;
+            city.dstRule      = kLocationCities[index].dstRule;
+        }
         return city;
     }
 
     bool setIndex(int index)
     {
-        if (index < 0 || index >= kCityCount) return false;
+        if (index < 0 || index >= kLocationCityCount) return false;
         if (index != currentIndex) {
             currentIndex = index;
             saveIndex();
@@ -166,8 +179,9 @@ namespace Location
 
     int offsetForIndex(int index, int year, int month, int day)
     {
-        if (index < 0 || index >= kCityCount) index = currentIndex;
-        const CityRecord &c = kCities[index];
+        if (index < 0 || index >= kLocationCityCount) index = currentIndex;
+        if (index == 0) return (int)gmtOffset_sec;
+        const LocationCityData &c = kLocationCities[index];
         int offset = c.stdOffsetSec;
         if (dstActive(c.dstRule, year, month, day)) offset += 3600;
         return offset;
@@ -180,7 +194,7 @@ namespace Location
 
     int offsetForUtc(time_t utc)
     {
-        const CityRecord &c = kCities[currentIndex];
+        const City &c = at(currentIndex);
         time_t approxLocal = utc + c.stdOffsetSec;
         struct tm tmValue;
         if (!gmtime_r(&approxLocal, &tmValue)) return c.stdOffsetSec;
@@ -194,16 +208,16 @@ namespace Location
 
     const char *city()
     {
-        return kCities[currentIndex].name;
+        return at(currentIndex).name;
     }
 
     float latitude()
     {
-        return kCities[currentIndex].lat;
+        return at(currentIndex).lat;
     }
 
     float longitude()
     {
-        return kCities[currentIndex].lon;
+        return at(currentIndex).lon;
     }
 }

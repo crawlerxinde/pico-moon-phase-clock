@@ -37,9 +37,11 @@ namespace
     lv_obj_t *batteryStatus = nullptr;
     lv_obj_t *batteryLevel = nullptr;
 
-    lv_obj_t *cityButton[8] = {nullptr};
-    lv_obj_t *cityName[8] = {nullptr};
-    lv_obj_t *cityOffset[8] = {nullptr};
+    lv_obj_t *locationRoller = nullptr;
+    lv_obj_t *locationOffsetLabel = nullptr;
+    char locationOptions[6144];
+    int lastRollerIndex = -1;
+    unsigned long lastRollerChangeMs = 0;
 
     int selectedField = FIELD_MINUTE;
     bool openFlag = false;
@@ -236,28 +238,29 @@ namespace
         lv_label_set_text(fieldLabel[FIELD_SECOND], buf);
     }
 
-    void refreshLocation()
+    void updateLocationOffset(int index)
     {
         Clock::DateTime dt = Clock::now();
-        for (int i = 0; i < Location::count() && i < 8; i++) {
-            bool selected = (i == Location::index());
-            lv_obj_set_style_bg_opa(cityButton[i], selected ? 255 : 0, 0);
-            lv_obj_set_style_bg_color(cityButton[i], lv_color_hex(0x333333), 0);
-            lv_obj_set_style_border_width(cityButton[i], selected ? 1 : 0, 0);
-            lv_obj_set_style_border_color(cityButton[i],
-                                          lv_color_hex(0x666666), 0);
-            lv_obj_set_style_text_color(cityName[i],
-                                        lv_color_hex(selected ? 0xFFFFFF : 0xCCCCCC), 0);
+        char offset[12];
+        formatOffset(Location::offsetForIndex(index, dt.year, dt.month, dt.day),
+                     offset, sizeof(offset));
+        lv_label_set_text(locationOffsetLabel, offset);
+    }
 
-            char offset[12];
-            formatOffset(Location::offsetForIndex(i, dt.year, dt.month, dt.day),
-                         offset, sizeof(offset));
-            lv_label_set_text(cityOffset[i], offset);
-        }
+    void refreshLocation()
+    {
+        if (!locationRoller) return;
+        updateLocationOffset(lv_roller_get_selected(locationRoller));
     }
 
     void refreshAll()
     {
+        if (locationRoller) {
+            int index = Location::index();
+            lv_roller_set_selected(locationRoller, index, LV_ANIM_OFF);
+            lastRollerIndex = index;
+            lastRollerChangeMs = millis();
+        }
         refreshDateTime();
         refreshBattery();
         refreshLocation();
@@ -457,32 +460,46 @@ namespace Settings
         make_label(timePanel, 110, 99, 138, 18, "Tap field, then -/+",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
 
-        /* Location card. */
+        /* Location card: a roller can hold the full ~200-city dataset without
+         * creating hundreds of temporary LVGL objects. */
         lv_obj_t *locationPanel = make_panel(settingsScreen, 450, 36, 178, 130);
-        make_label(locationPanel, 8, 6, 160, 14, "LOCATION",
+        make_label(locationPanel, 8, 6, 72, 14, "LOCATION",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
+        locationOffsetLabel = make_label(locationPanel, 86, 6, 84, 14, "",
+                                         &ui_font_Inter10M, 0x888888,
+                                         LV_TEXT_ALIGN_RIGHT);
 
-        for (int i = 0; i < Location::count() && i < 8; i++) {
-            int y = 20 + i * 17;
-            lv_obj_t *button = lv_obj_create(locationPanel);
-            lv_obj_remove_style_all(button);
-            lv_obj_set_pos(button, 6, y);
-            lv_obj_set_size(button, 166, 16);
-            lv_obj_add_flag(button, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
-            lv_obj_set_style_bg_opa(button, 0, 0);
-            lv_obj_set_style_radius(button, 3, 0);
-            lv_obj_set_style_border_width(button, 0, 0);
-            lv_obj_add_event_cb(button, [](lv_event_t *event) {
-                Settings::selectLocation((int)(intptr_t)lv_event_get_user_data(event));
-            }, LV_EVENT_CLICKED, (void *)(intptr_t)i);
-
-            cityButton[i] = button;
-            cityName[i] = make_label(button, 6, 1, 94, 14, Location::at(i).name,
-                                     &ui_font_Inter11R, 0xCCCCCC, LV_TEXT_ALIGN_LEFT);
-            cityOffset[i] = make_label(button, 100, 1, 60, 14, "",
-                                       &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_RIGHT);
+        locationRoller = lv_roller_create(locationPanel);
+        locationOptions[0] = '\0';
+        size_t used = 0;
+        for (int i = 0; i < Location::count(); i++) {
+            int written = snprintf(locationOptions + used,
+                                   sizeof(locationOptions) - used,
+                                   "%s%s", (i == 0) ? "" : "\n",
+                                   Location::at(i).name);
+            if (written <= 0) break;
+            used += (size_t)written;
+            if (used >= sizeof(locationOptions)) break;
         }
+        lv_roller_set_options(locationRoller, locationOptions,
+                              LV_ROLLER_MODE_NORMAL);
+        lv_roller_set_visible_row_count(locationRoller, 6);
+        lv_obj_set_pos(locationRoller, 6, 20);
+        lv_obj_set_size(locationRoller, 166, 104);
+        lv_obj_set_style_bg_opa(locationRoller, 0, 0);
+        lv_obj_set_style_border_width(locationRoller, 0, 0);
+        lv_obj_set_style_text_font(locationRoller, &ui_font_Inter11R, 0);
+        lv_obj_set_style_text_color(locationRoller, lv_color_hex(0xCCCCCC), 0);
+        lv_obj_set_style_text_align(locationRoller, LV_TEXT_ALIGN_LEFT, 0);
+        lv_obj_set_style_text_line_space(locationRoller, 2, 0);
+        lv_obj_set_style_bg_color(locationRoller, lv_color_hex(0x333333),
+                                  LV_PART_SELECTED);
+        lv_obj_set_style_bg_opa(locationRoller, 255, LV_PART_SELECTED);
+        lv_obj_set_style_text_color(locationRoller, lv_color_hex(0xFFFFFF),
+                                    LV_PART_SELECTED);
+        lv_obj_set_style_radius(locationRoller, 4, LV_PART_SELECTED);
+        lv_obj_set_style_border_width(locationRoller, 0, LV_PART_SELECTED);
+        lv_obj_set_scrollbar_mode(locationRoller, LV_SCROLLBAR_MODE_OFF);
 
         /* Tap the location pill as a discoverable alternative to swiping. */
         lv_obj_add_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE);
@@ -509,6 +526,16 @@ namespace Settings
         if (nowMs - lastOffsetRefreshMs >= 60000UL) {
             refreshLocation();
             lastOffsetRefreshMs = nowMs;
+        }
+
+        int selected = lv_roller_get_selected(locationRoller);
+        if (selected != lastRollerIndex) {
+            lastRollerIndex = selected;
+            lastRollerChangeMs = nowMs;
+            updateLocationOffset(selected);
+        } else if (selected != Location::index() &&
+                   (nowMs - lastRollerChangeMs) >= 700) {
+            Settings::selectLocation(selected);
         }
     }
 
