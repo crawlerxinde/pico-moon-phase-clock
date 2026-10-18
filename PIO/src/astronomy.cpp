@@ -229,23 +229,10 @@ namespace
         struct tm tmValue;
         gmtime_r(&shifted, &tmValue);
 
-        int hour12 = tmValue.tm_hour % 12;
-        if (hour12 == 0) hour12 = 12;
-        const char *ampm = (tmValue.tm_hour < 12) ? "AM" : "PM";
-        snprintf(out, outSize, "%d:%02d %s", hour12, tmValue.tm_min, ampm);
+        /* The original UI shows 24-hour times around the sun/moon icons. */
+        snprintf(out, outSize, "%02d:%02d", tmValue.tm_hour, tmValue.tm_min);
     }
 
-    const char *phaseName(double phase)
-    {
-        if (phase < 0.03 || phase > 0.97) return "New Moon";
-        if (phase < 0.22)                 return "Waxing Crescent";
-        if (phase < 0.28)                 return "First Quarter";
-        if (phase < 0.47)                 return "Waxing Gibbous";
-        if (phase < 0.53)                 return "Full Moon";
-        if (phase < 0.72)                 return "Waning Gibbous";
-        if (phase < 0.78)                 return "Last Quarter";
-        return "Waning Crescent";
-    }
 }
 
 namespace Astronomy
@@ -290,18 +277,13 @@ namespace Astronomy
         if (frame < 0) frame = 0;
         if (frame > 29) frame = 29;
 
-        lv_label_set_text(ui_Screen1_Label_Phase, phaseName(phase));
+        lv_label_set_text(ui_Screen1_Label_Phase, myCity);
         lv_img_set_src(ui_Screen1_Image_Moon, (const void *)ui_imgset_moon_[frame]);
 
-        char buf[32];
-        snprintf(buf, sizeof(buf), "Sunrise  %s", sunriseText);
-        lv_label_set_text(ui_Screen1_Label_sunrise, buf);
-        snprintf(buf, sizeof(buf), "Sunset   %s", sunsetText);
-        lv_label_set_text(ui_Screen1_Label_sunset, buf);
-        snprintf(buf, sizeof(buf), "Moonrise %s", moonriseText);
-        lv_label_set_text(ui_Screen1_Label_moonrise, buf);
-        snprintf(buf, sizeof(buf), "Moonset  %s", moonsetText);
-        lv_label_set_text(ui_Screen1_Label_moonset, buf);
+        lv_label_set_text(ui_Screen1_Label_sunrise, sunriseText);
+        lv_label_set_text(ui_Screen1_Label_sunset, sunsetText);
+        lv_label_set_text(ui_Screen1_Label_moonrise, moonriseText);
+        lv_label_set_text(ui_Screen1_Label_moonset, moonsetText);
 
         lv_obj_clear_flag(ui_Screen1_Image_sun_moon, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_ADV_HITTEST);
         lv_obj_clear_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN);

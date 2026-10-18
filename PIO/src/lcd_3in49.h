@@ -21,6 +21,12 @@ void LCD_SetRotation(uint8_t madctl);
 void LCD_SetWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 void LCD_WritePixels(uint16_t *pixels, size_t count);
 
+/* Full-panel streaming write: set the 172x640 window once, then stream
+ * blocks without re-sending the address window or 0x2C between blocks. */
+void LCD_BeginFullWrite(void);
+void LCD_WritePixelsStream(const uint16_t *pixels, size_t count);
+void LCD_EndFullWrite(void);
+
 #ifdef __cplusplus
 }
 #endif

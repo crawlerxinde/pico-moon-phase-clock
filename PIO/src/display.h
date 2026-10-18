@@ -5,7 +5,8 @@
 
 namespace Display
 {
-    /* Landscape orientation of the 172x640 panel. */
+    /* Logical LVGL resolution.  The panel itself is driven in its native
+     * 172x640 portrait orientation and rotated by the flush callback. */
     constexpr uint16_t Width  = 640;
     constexpr uint16_t Height = 172;
 
@@ -17,4 +18,22 @@ namespace Display
     extern bool TouchInvertY;
 
     void begin();
+
+    /* Full-screen draw buffer, also used as the screenshot source buffer. */
+    uint8_t *screenBuffer();
+    uint32_t screenBufferSize();
+
+    /* Software 180-degree display flip (the panel stays in portrait mode). */
+    void setFlipped(bool flipped);
+    bool flipped();
+
+    /* Fill the native panel with one RGB565 colour. */
+    void clearPanel(uint16_t color);
+
+    /* Temporary hardware diagnostics. */
+    void fillPanelPortrait();
+    void fillPanelLandscape();
+    uint32_t flushCount();
+    uint16_t lastFlushWidth();
+    uint16_t lastFlushHeight();
 }

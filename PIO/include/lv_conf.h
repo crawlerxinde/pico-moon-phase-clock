@@ -89,6 +89,7 @@
 #define LV_USE_GRID 1
 
 #define LV_USE_IMG 1
+#define LV_USE_SNAPSHOT 1
 #define LV_USE_LABEL 1
 #define LV_USE_LINE 1
 #define LV_USE_ARC 1

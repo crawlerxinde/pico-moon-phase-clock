@@ -49,7 +49,15 @@ python scripts/set_rtc.py --time "2026-10-17 22:30:00"
 首次使用请修改 `PIO/src/credential.h` 中的经纬度和时区。自动校准使用电脑本地时间；
 如果电脑时区与板子配置的 UTC 偏移不同，请用 `--time` 传入正确的本地时间。
 
-串口命令：`B 0..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`R` 读时间、`?` 帮助。
+串口命令：`B 0..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`C` 截屏、`R` 读时间、`?` 帮助。
+
+截屏（生成 PNG）：
+
+```bash
+cd PIO
+python scripts/screenshot.py
+python scripts/screenshot.py --output clock.png
+```
 
 Moon phase clock running on the **Waveshare RP2350-Touch-LCD-3.49** board.
 
@@ -79,8 +87,13 @@ reference and are excluded from the build.
 | Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
 | Power button | SYS_OUT GPIO 38 (low = pressed) |
 
-The UI is laid out for the panel's **640x172 landscape** orientation.  The
-display driver sets `MADCTL = 0x60` (MX | MV).
+The original project's **320x170 UI** is reproduced 1:1 and centred in the
+640x172 panel, so the fonts, spacing and rise/set rows match the original GIF.
+The panel itself is driven in its native **172x640 portrait** orientation; the
+LVGL flush callback rotates the logical buffer into 172x640 blocks in software.
+This matches Waveshare's reference implementation and avoids relying on the
+panel's MADCTL rotation mode.  The bordered box shows `myCity` (for example
+`Beijing`); the moon image itself shows the current phase.
 
 ## Configure
 
@@ -89,6 +102,7 @@ Edit `PIO/src/credential.h`:
 ```cpp
 static const float myLat = 51.5074f;   // your latitude
 static const float myLon = -0.1278f;   // your longitude (east positive)
+static const char *myCity = "London";  // shown in the bordered box
 static const long  gmtOffset_sec = 3600;
 static const int   daylightOffset_sec = 3600; // 0 if not in DST
 ```
@@ -109,11 +123,38 @@ Serial commands (115200 baud):
 | `B 0..100` | set backlight brightness |
 | `F` | flip the display 180 degrees |
 | `X` / `Y` / `S` | invert touch X / invert touch Y / swap touch axes |
+| `C` | capture the LVGL screen as RGB565 over USB |
 | `R` | print the current RTC date/time |
 | `?` | help |
 
 If touch does not line up with the screen, use `X`, `Y` and `S` first; the
 current calibration can then be copied into `PIO/src/display.cpp`.
+
+### Screenshot
+
+The firmware can stream its current LVGL screen over USB.  Run the host script
+to receive the 640x172 RGB565 image and save it as a PNG:
+
+```bash
+cd PIO
+python scripts/screenshot.py
+python scripts/screenshot.py --output clock.png
+```
+
+The script first tries the normal serial port (pyserial), then falls back to
+raw USB CDC if `/dev/ttyACM*` is not accessible.  The raw USB fallback needs
+`pyusb` (`pip install pyusb`).  You can force either mode:
+
+```bash
+python scripts/screenshot.py --port /dev/ttyACM0
+python scripts/screenshot.py --usb
+python scripts/screenshot.py --raw   # also save the RGB565 data
+```
+
+The result is a snapshot of LVGL's logical screen, not a readback of the
+display controller's physical framebuffer.  It is useful for checking text,
+layout, moon images and values; it does not show panel-level color or rotation
+issues.
 
 ## Build and flash
 

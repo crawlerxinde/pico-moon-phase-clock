@@ -132,8 +132,10 @@ namespace
         snprintf(timeString24hr, sizeof(timeString24hr), "%02d:%02d", t.hour, t.minute);
         snprintf(secondsString, sizeof(secondsString), "%02d", t.second);
         snprintf(ampmString, sizeof(ampmString), "%s", ampm);
-        snprintf(dateString, sizeof(dateString), "%s %02d %s %04d",
-                 weekdays[t.weekday % 7], t.day, months[t.month - 1], t.year);
+        /* Original UI format: day weekday - Mon/YY (e.g. 19 Tue - Mar/24) */
+        snprintf(dateString, sizeof(dateString), "%d %s - %s/%d",
+                 t.day, weekdays[t.weekday % 7], months[t.month - 1],
+                 t.year % 100);
     }
 
     void applyLabels()

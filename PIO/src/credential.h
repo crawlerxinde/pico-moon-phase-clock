@@ -14,6 +14,9 @@
 static const float myLat = 40.0434412f;
 static const float myLon = 116.4152377f;
 
+// Name shown in the bordered location box on the clock face.
+static const char *myCity = "Beijing";
+
 // Local UTC offset in seconds.
 // e.g. UTC+3:  3 * 3600     UTC-5:  -5 * 3600
 // The RTC is expected to hold local time.  daylightOffset_sec is added when

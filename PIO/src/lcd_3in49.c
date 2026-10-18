@@ -50,9 +50,6 @@ static const uint8_t cmd_e5[] = {0x38, 0x20, 0x0D, 0x13, 0x0D, 0x07, 0x12, 0x29,
 static const uint8_t cmd_a4_1[] = {0x85, 0x85, 0x95, 0x82, 0xAF, 0xAA, 0xAA, 0x80, 0x10, 0x30, 0x40, 0x40, 0x20, 0xFF, 0x60, 0x30};
 static const uint8_t cmd_a4_2[] = {0x85, 0x85, 0x95, 0x85};
 static const uint8_t cmd_bb_2[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const uint8_t cmd_madctl[] = {0x60}; /* MX | MV: landscape 640x172 */
-static const uint8_t cmd_colmod[] = {0x55}; /* RGB565 */
-
 static const lcd_init_cmd_t lcd_init_cmds[] = {
     {0xBB, cmd_bb_1, sizeof(cmd_bb_1), 0},
     {0xA0, cmd_a0, sizeof(cmd_a0), 0},
@@ -83,15 +80,21 @@ static const lcd_init_cmd_t lcd_init_cmds[] = {
     {0xA4, cmd_a4_1, sizeof(cmd_a4_1), 0},
     {0xA4, cmd_a4_2, sizeof(cmd_a4_2), 0},
     {0xBB, cmd_bb_2, sizeof(cmd_bb_2), 0},
-    {0x36, cmd_madctl, sizeof(cmd_madctl), 0},
-    {0x3A, cmd_colmod, sizeof(cmd_colmod), 0},
-    {0x11, NULL, 0, 120},
-    {0x29, NULL, 0, 20},
 };
 
 static int      dma_tx = -1;
 static dma_channel_config dma_cfg;
 static uint      backlight_slice = 0;
+
+/* Do not raise CS while the PIO still has command/data bytes queued,
+ * otherwise the last bytes of a command can be truncated. */
+static void qspi_wait_done(void)
+{
+    while (!pio_sm_is_tx_fifo_empty(qspi.pio, qspi.sm)) {
+        tight_loop_contents();
+    }
+    busy_wait_us_32(20);
+}
 
 static void send_cmd(const lcd_init_cmd_t *cmd)
 {
@@ -100,6 +103,7 @@ static void send_cmd(const lcd_init_cmd_t *cmd)
     for (size_t i = 0; i < cmd->data_bytes; i++) {
         QSPI_DATA_Write(qspi, cmd->data[i]);
     }
+    qspi_wait_done();
     QSPI_Deselect(qspi);
     if (cmd->delay_ms) {
         sleep_ms(cmd->delay_ms);
@@ -138,6 +142,14 @@ void LCD_Init(void)
     backlight_init();
     LCD_SetBacklight(0);
 
+    /* Power-cycle the panel before every initialisation.  The AXS15231B can
+     * latch an invalid/test mode after a large number of soft resets; only a
+     * real PWR_EN low pulse reliably clears it. */
+    gpio_put(qspi.pin_pwr_en, 0);
+    sleep_ms(200);
+    gpio_put(qspi.pin_pwr_en, 1);
+    sleep_ms(200);
+
     /* Hardware reset */
     gpio_put(qspi.pin_rst, 1);
     sleep_ms(200);
@@ -167,6 +179,7 @@ static void set_address(uint8_t cmd, uint16_t start, uint16_t end)
     QSPI_DATA_Write(qspi, start & 0xFF);
     QSPI_DATA_Write(qspi, end >> 8);
     QSPI_DATA_Write(qspi, end & 0xFF);
+    qspi_wait_done();
     QSPI_Deselect(qspi);
 }
 
@@ -174,14 +187,18 @@ void LCD_SetWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     set_address(0x2A, x0, x1);
     set_address(0x2B, y0, y1);
+
+    /* Match the Waveshare/pico-clock sequence: send 0x2C once when the
+     * window is latched, then again immediately before streaming pixels. */
+    QSPI_Select(qspi);
+    QSPI_REGISTER_Write(qspi, 0x2C);
+    qspi_wait_done();
+    QSPI_Deselect(qspi);
 }
 
-void LCD_WritePixels(uint16_t *pixels, size_t count)
+static void write_pixels_stream(const uint16_t *pixels, size_t count)
 {
     if (!pixels || !count || dma_tx < 0) return;
-
-    QSPI_Select(qspi);
-    QSPI_Pixel_Write(qspi, 0x2C);
 
     channel_config_set_dreq(&dma_cfg, pio_get_dreq(qspi.pio, qspi.sm, true));
     dma_channel_configure(dma_tx,
@@ -194,9 +211,33 @@ void LCD_WritePixels(uint16_t *pixels, size_t count)
     while (dma_channel_is_busy(dma_tx)) {
         tight_loop_contents();
     }
-    while (!pio_sm_is_tx_fifo_empty(qspi.pio, qspi.sm)) {
-        tight_loop_contents();
-    }
-    busy_wait_us_32(20);
+    qspi_wait_done();
+}
+
+void LCD_WritePixels(uint16_t *pixels, size_t count)
+{
+    if (!pixels || !count || dma_tx < 0) return;
+
+    QSPI_Select(qspi);
+    QSPI_Pixel_Write(qspi, 0x2C);
+    write_pixels_stream(pixels, count);
+    QSPI_Deselect(qspi);
+}
+
+void LCD_BeginFullWrite(void)
+{
+    LCD_SetWindow(0, 0, LCD_PANEL_WIDTH - 1, LCD_PANEL_HEIGHT - 1);
+    QSPI_Select(qspi);
+    QSPI_Pixel_Write(qspi, 0x2C);
+}
+
+void LCD_WritePixelsStream(const uint16_t *pixels, size_t count)
+{
+    write_pixels_stream(pixels, count);
+}
+
+void LCD_EndFullWrite(void)
+{
+    qspi_wait_done();
     QSPI_Deselect(qspi);
 }
