@@ -26,11 +26,16 @@ namespace Clock
     bool     dateChanged();
     bool     rtcPresent();
 
-    /* Set the PCF85063A from local date/time.  Returns false on I2C error. */
+    /* Set the PCF85063A from local date/time.  Returns false on I2C error
+     * or invalid date/time.  The RTC only supports 2020..2069 here. */
     bool setDateTime(int year, int month, int day, int hour, int minute, int second);
 
-    /* Helpers shared with the astronomy module. */
+    /* Convert a UTC instant into the RTC's local-time representation. */
+    bool setFromUtc(time_t utc, int offsetSec);
+
+    /* Helpers shared with the astronomy/location modules. */
     int64_t daysFromCivil(int year, unsigned month, unsigned day);
+    int     daysInMonth(int year, int month);
 }
 
 extern char timeString12hr[9];

@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include <ui.h>
 
+#include <EEPROM.h>
 #include <hardware/i2c.h>
 #include <hardware/gpio.h>
 #include <pico/stdlib.h>
@@ -12,6 +13,7 @@
 #include <string.h>
 
 #include "credential.h"
+#include "location.h"
 
 namespace
 {
@@ -19,10 +21,23 @@ namespace
     constexpr int      RTC_SDA_PIN    = 6;
     constexpr int      RTC_SCL_PIN    = 7;
     constexpr uint32_t RTC_I2C_HZ     = 400000;
+    constexpr int      RTC_YEAR_BASE  = 2000;
+
+    /* One-time migration flag: older firmware stored (year - 1970) in the
+     * PCF85063A year register.  The chip itself expects (year - 2000). */
+    constexpr int      CLOCK_EEPROM_OFFSET = 16;
+    constexpr uint32_t CLOCK_EEPROM_MAGIC  = 0x434C4B31UL; // "CLK1"
+    struct ClockPersist
+    {
+        uint32_t magic;
+        uint8_t  version;
+        uint8_t  reserved[3];
+    };
 
     Clock::DateTime lastTime = {2026, 1, 1, 0, 0, 0, 0};
     bool     haveTime        = false;
     bool     rtc_ok          = false;
+    int      rtcYearBase     = RTC_YEAR_BASE;
     bool     dayChanged      = true;
     unsigned long lastReadMs = 0;
     unsigned long lastTickMs = 0;
@@ -76,7 +91,7 @@ namespace
         dt.weekday = weekdayFromDate(dt.year, dt.month, dt.day);
     }
 
-    bool readRtc(Clock::DateTime &dt)
+    bool readRtc(Clock::DateTime &dt, int yearBase)
     {
         uint8_t reg = 0x04;
         uint8_t buf[7] = {0};
@@ -92,12 +107,13 @@ namespace
         int hour  = bcdToDec(buf[2] & 0x3F);
         int day   = bcdToDec(buf[3] & 0x3F);
         int month = bcdToDec(buf[5] & 0x1F);
-        int year  = bcdToDec(buf[6]) + 1970;
+        int year  = bcdToDec(buf[6]) + yearBase;
 
-        if (sec > 59 || min > 59 || hour > 23 || day < 1 || day > 31 ||
-            month < 1 || month > 12 || year < 2020 || year > 2099) {
+        if (sec > 59 || min > 59 || hour > 23 || day < 1 ||
+            month < 1 || month > 12 || year < 2020 || year > 2069) {
             return false;
         }
+        if (day > Clock::daysInMonth(year, month)) return false;
 
         dt.year    = year;
         dt.month   = month;
@@ -109,7 +125,7 @@ namespace
         return true;
     }
 
-    bool writeRtc(const Clock::DateTime &dt)
+    bool writeRtc(const Clock::DateTime &dt, int yearBase)
     {
         uint8_t buf[8] = {
             0x04,
@@ -119,7 +135,7 @@ namespace
             decToBcd(dt.day),
             decToBcd(dt.weekday),
             decToBcd(dt.month),
-            decToBcd(dt.year - 1970)
+            decToBcd(dt.year - yearBase)
         };
         return i2c_write_blocking(i2c1, RTC_ADDR, buf, sizeof(buf), false) == (int)sizeof(buf);
     }
@@ -177,6 +193,58 @@ namespace Clock
         return era * 146097 + (int64_t)doe - 719468;
     }
 
+    int daysInMonth(int year, int month)
+    {
+        static const int mdays[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+        if (month < 1 || month > 12) return 0;
+        int days = mdays[month - 1];
+        if (month == 2) {
+            bool leap = (year % 4 == 0) &&
+                        ((year % 100 != 0) || (year % 400 == 0));
+            if (leap) days = 29;
+        }
+        return days;
+    }
+
+    void ensureRtcYearBase()
+    {
+        EEPROM.begin(sizeof(ClockPersist));
+        ClockPersist persisted;
+        EEPROM.get(CLOCK_EEPROM_OFFSET, persisted);
+        if (persisted.magic == CLOCK_EEPROM_MAGIC && persisted.version == 1) {
+            rtcYearBase = RTC_YEAR_BASE;
+            return;
+        }
+
+        bool markMigrated = false;
+        DateTime dt;
+        if (readRtc(dt, 1970)) {
+            /* Old firmware wrote year-1970.  Rewrite the same instant using
+             * the chip's real 2000-based year register. */
+            if (writeRtc(dt, RTC_YEAR_BASE)) {
+                rtcYearBase = RTC_YEAR_BASE;
+                markMigrated = true;
+            } else {
+                /* Keep using the old base for this session rather than
+                 * misreading the RTC as 2056. */
+                rtcYearBase = 1970;
+            }
+        } else if (readRtc(dt, RTC_YEAR_BASE)) {
+            /* EEPROM was erased but the RTC is already 2000-based. */
+            rtcYearBase = RTC_YEAR_BASE;
+            markMigrated = true;
+        } else {
+            /* No valid RTC yet; begin() will seed it with build time. */
+            rtcYearBase = RTC_YEAR_BASE;
+        }
+
+        if (markMigrated) {
+            ClockPersist updated = {CLOCK_EEPROM_MAGIC, 1, {0, 0, 0}};
+            EEPROM.put(CLOCK_EEPROM_OFFSET, updated);
+            EEPROM.commit();
+        }
+    }
+
     void begin()
     {
         i2c_init(i2c1, RTC_I2C_HZ);
@@ -189,8 +257,10 @@ namespace Clock
         uint8_t ctrl[2] = {0x01, 0x00};
         i2c_write_blocking(i2c1, RTC_ADDR, ctrl, sizeof(ctrl), false);
 
+        ensureRtcYearBase();
+
         DateTime dt;
-        if (readRtc(dt)) {
+        if (readRtc(dt, rtcYearBase)) {
             rtc_ok = true;
             lastTime = dt;
             haveTime = true;
@@ -201,7 +271,7 @@ namespace Clock
              * build time.  Use the serial command "T YYYY-MM-DD HH:MM:SS"
              * (or edit this block) to correct it. */
             buildTime(dt);
-            rtc_ok = writeRtc(dt);
+            rtc_ok = writeRtc(dt, rtcYearBase);
             lastTime = dt;
             haveTime = true;
             formatTime(dt);
@@ -249,7 +319,7 @@ namespace Clock
         lastReadMs = nowMs;
 
         DateTime dt;
-        if (readRtc(dt)) {
+        if (readRtc(dt, rtcYearBase)) {
             rtc_ok = true;
             /* Detect rollover and refresh the labels. */
             formatTime(dt);
@@ -277,7 +347,9 @@ namespace Clock
 
     time_t utcEpoch()
     {
-        return localEpoch() - gmtOffset_sec - daylightOffset_sec;
+        return localEpoch() - Location::offsetForDate(lastTime.year,
+                                                      lastTime.month,
+                                                      lastTime.day);
     }
 
     bool dateChanged()
@@ -294,9 +366,10 @@ namespace Clock
 
     bool setDateTime(int year, int month, int day, int hour, int minute, int second)
     {
-        if (year < 2020 || year > 2099 || month < 1 || month > 12 ||
-            day < 1 || day > 31 || hour < 0 || hour > 23 ||
-            minute < 0 || minute > 59 || second < 0 || second > 59) {
+        if (year < 2020 || year > 2069 || month < 1 || month > 12 ||
+            day < 1 || day > daysInMonth(year, month) ||
+            hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+            second < 0 || second > 59) {
             return false;
         }
 
@@ -309,7 +382,7 @@ namespace Clock
         dt.second = second;
         dt.weekday = weekdayFromDate(year, month, day);
 
-        if (!writeRtc(dt)) return false;
+        if (!writeRtc(dt, rtcYearBase)) return false;
 
         rtc_ok = true;
         lastTime = dt;
@@ -318,5 +391,18 @@ namespace Clock
         dayChanged = true;
         applyLabels();
         return true;
+    }
+
+    bool setFromUtc(time_t utc, int offsetSec)
+    {
+        time_t local = utc + (time_t)offsetSec;
+        struct tm tmValue;
+        if (!gmtime_r(&local, &tmValue)) return false;
+        return setDateTime(tmValue.tm_year + 1900,
+                           tmValue.tm_mon + 1,
+                           tmValue.tm_mday,
+                           tmValue.tm_hour,
+                           tmValue.tm_min,
+                           tmValue.tm_sec);
     }
 }

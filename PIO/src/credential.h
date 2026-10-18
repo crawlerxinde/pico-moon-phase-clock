@@ -9,20 +9,23 @@
 
 #include <stdint.h>
 
-// Location used for the local sun/moon calculations.
+// Default location used for the local sun/moon calculations.
 // Positive latitude = north, positive longitude = east.
+//
+// These values are the power-on default.  The Settings page can switch to
+// Paris, London, New York, Tokyo or Sydney at runtime; the selection is stored
+// in EEPROM.  Changing city keeps the same UTC instant and rewrites the RTC
+// in the new city's local time.
 static const float myLat = 40.0434412f;
 static const float myLon = 116.4152377f;
 
-// Name shown in the bordered location box on the clock face.
+// Default name shown in the location pill.
 static const char *myCity = "Beijing";
 
-// Local UTC offset in seconds.
+// Default local UTC offset in seconds.
 // e.g. UTC+3:  3 * 3600     UTC-5:  -5 * 3600
-// The RTC is expected to hold local time.  daylightOffset_sec is added when
-// computing UTC for the astronomy routines; set it to 3600 during DST or 0.
-static const long gmtOffset_sec      = 8 * 3600; // Asia/Shanghai (UTC+8)
-static const int  daylightOffset_sec = 0;        // China does not use DST
+// Runtime offsets (including DST) live in location.cpp.
+static const long gmtOffset_sec = 8 * 3600; // Asia/Shanghai (UTC+8)
 
 // Default backlight brightness (0..100).  Can also be changed at runtime with
 // the serial command "B 80".

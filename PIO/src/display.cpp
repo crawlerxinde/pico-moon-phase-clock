@@ -43,7 +43,8 @@ namespace
         gpio_pull_up(TOUCH_SCL_PIN);
     }
 
-    bool touch_read(uint16_t &x, uint16_t &y)
+    bool touch_read(uint16_t &x, uint16_t &y,
+                    uint16_t *rawOutX = nullptr, uint16_t *rawOutY = nullptr)
     {
         uint8_t data[32] = {0};
 
@@ -54,12 +55,14 @@ namespace
             return false;
         }
 
-        if (data[1] == 0) {
+        if (data[1] == 0 || data[1] > 2) {
             return false;
         }
 
         uint16_t raw_x = (((uint16_t)data[2] & 0x0F) << 8) | data[3];
         uint16_t raw_y = (((uint16_t)data[4] & 0x0F) << 8) | data[5];
+        if (rawOutX) *rawOutX = raw_x;
+        if (rawOutY) *rawOutY = raw_y;
 
         if (Display::TouchSwapXY) {
             uint16_t t = raw_x;
@@ -67,8 +70,13 @@ namespace
             raw_y = t;
         }
 
-        if (raw_x >= Display::Width)  raw_x = Display::Width - 1;
-        if (raw_y >= Display::Height) raw_y = Display::Height - 1;
+        /* The controller sometimes reports a stale "finger" byte together
+         * with an out-of-range 0x222/0x222 placeholder.  Treat that as no
+         * touch instead of clamping it to a screen corner; clamping made
+         * LVGL see huge jumps and broke swipes/clicks. */
+        if (raw_x >= Display::Width || raw_y >= Display::Height) {
+            return false;
+        }
 
         x = Display::TouchInvertX ? (Display::Width  - 1 - raw_x) : raw_x;
         y = Display::TouchInvertY ? (Display::Height - 1 - raw_y) : raw_y;
@@ -82,8 +90,12 @@ namespace
             data->point.x = x;
             data->point.y = y;
             data->state   = LV_INDEV_STATE_PRESSED;
+            Display::TouchDown  = true;
+            Display::TouchLastX = x;
+            Display::TouchLastY = y;
         } else {
             data->state = LV_INDEV_STATE_RELEASED;
+            Display::TouchDown = false;
         }
     }
 
@@ -141,6 +153,14 @@ namespace Display
      * axes.  X/Y/S can still override this at runtime. */
     bool TouchInvertX = true;
     bool TouchInvertY = true;
+    bool     TouchDown  = false;
+    uint16_t TouchLastX = 0;
+    uint16_t TouchLastY = 0;
+
+    bool readTouch(uint16_t &x, uint16_t &y, uint16_t *rawX, uint16_t *rawY)
+    {
+        return touch_read(x, y, rawX, rawY);
+    }
 
     uint8_t *screenBuffer()
     {

@@ -22,7 +22,7 @@
 #include <time.h>
 
 #include "clock.h"
-#include "credential.h"
+#include "location.h"
 
 extern const lv_img_dsc_t *ui_imgset_moon_[30];
 
@@ -197,11 +197,11 @@ namespace
     {
         const double threshold = moon ? 0.0 : -0.833;
         time_t prevT = start;
-        double prevAlt = altitudeDeg(moon, prevT, myLat, myLon);
+        double prevAlt = altitudeDeg(moon, prevT, Location::latitude(), Location::longitude());
         bool prevUp = prevAlt > threshold;
 
         for (time_t t = start + stepSeconds; t <= end; t += stepSeconds) {
-            double alt = altitudeDeg(moon, t, myLat, myLon);
+            double alt = altitudeDeg(moon, t, Location::latitude(), Location::longitude());
             bool up = alt > threshold;
 
             if (up != prevUp && up == rising) {
@@ -252,7 +252,7 @@ namespace Astronomy
         }
 
         Clock::DateTime dt = Clock::now();
-        time_t localOffset = gmtOffset_sec + daylightOffset_sec;
+        int localOffset = Location::offsetForDate(dt.year, dt.month, dt.day);
         time_t localMidnight = (time_t)(Clock::daysFromCivil(dt.year, (unsigned)dt.month, (unsigned)dt.day) * 86400);
         time_t utcStart = localMidnight - localOffset;
 
@@ -277,7 +277,7 @@ namespace Astronomy
         if (frame < 0) frame = 0;
         if (frame > 29) frame = 29;
 
-        lv_label_set_text(ui_Screen1_Label_Phase, myCity);
+        lv_label_set_text(ui_Screen1_Label_Phase, Location::city());
         lv_img_set_src(ui_Screen1_Image_Moon, (const void *)ui_imgset_moon_[frame]);
 
         char eventBuf[24];

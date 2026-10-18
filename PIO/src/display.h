@@ -17,7 +17,19 @@ namespace Display
     extern bool TouchInvertX;
     extern bool TouchInvertY;
 
+    /* Last valid touch sample, refreshed by the LVGL indev callback.
+     * Settings uses this for manual swipe detection. */
+    extern bool     TouchDown;
+    extern uint16_t TouchLastX;
+    extern uint16_t TouchLastY;
+
     void begin();
+
+    /* Read one touch sample (mapped logical coordinates).  When rawX/rawY are
+     * supplied they receive the controller's raw values before calibration;
+     * used by the serial touch diagnostic. */
+    bool readTouch(uint16_t &x, uint16_t &y,
+                   uint16_t *rawX = nullptr, uint16_t *rawY = nullptr);
 
     /* Full-screen draw buffer, also used as the screenshot source buffer. */
     uint8_t *screenBuffer();

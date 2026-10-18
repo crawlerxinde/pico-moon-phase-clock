@@ -7,10 +7,13 @@
 #include <stdlib.h>
 
 #include "astronomy.h"
+#include "battery.h"
 #include "clock.h"
 #include "credential.h"
 #include "display.h"
 #include "lcd_3in49.h"
+#include "location.h"
+#include "settings.h"
 
 extern const lv_img_dsc_t *ui_imgset_moon_[30];
 
@@ -46,7 +49,7 @@ namespace
         lv_label_set_text(ui_Screen1_Label_sunset,   "--");
         lv_label_set_text(ui_Screen1_Label_moonrise, "--");
         lv_label_set_text(ui_Screen1_Label_moonset,  "--");
-        lv_label_set_text(ui_Screen1_Label_Phase,    myCity);
+        lv_label_set_text(ui_Screen1_Label_Phase,    Location::city());
         lv_obj_clear_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN);
     }
 
@@ -143,6 +146,11 @@ namespace
         Serial.println("  F                       flip display 180 degrees");
         Serial.println("  X / Y / S               invert X / invert Y / swap touch axes");
         Serial.println("  C                       capture screenshot (RGB565 over USB)");
+        Serial.println("  G                       open/close Settings page");
+        Serial.println("  L                       list locations; L 0..5 select");
+        Serial.println("  K FIELD DELTA           adjust date/time field (0=year..5=sec)");
+        Serial.println("  A                       print battery voltage/percentage");
+        Serial.println("  P                       sample touch for 30 s (diagnostic)");
         Serial.println("  V                       print display debug info");
         Serial.println("  D / E                   portrait / landscape panel fill test");
         Serial.println("  R                       print current date/time");
@@ -198,6 +206,55 @@ namespace
                         Serial.printf("Touch swap XY: %d\n", Display::TouchSwapXY);
                     } else if (*line == 'C' || *line == 'c') {
                         captureScreenshot();
+                    } else if (*line == 'G' || *line == 'g') {
+                        if (Settings::isOpen()) Settings::hide();
+                        else Settings::show();
+                        Serial.printf("Settings: %s\n", Settings::isOpen() ? "open" : "closed");
+                    } else if (*line == 'L' || *line == 'l') {
+                        int index = -1;
+                        if (sscanf(line + 1, "%d", &index) == 1) {
+                            if (index >= 0 && index < Location::count()) {
+                                Settings::selectLocation(index);
+                                Serial.printf("Location: %s\n", Location::city());
+                            } else {
+                                Serial.println("Location index out of range");
+                            }
+                        } else {
+                            Serial.printf("Location: %s (%d)\n",
+                                          Location::city(), Location::index());
+                            for (int i = 0; i < Location::count(); i++) {
+                                Serial.printf("  %d  %s\n", i, Location::at(i).name);
+                            }
+                        }
+                    } else if (*line == 'K' || *line == 'k') {
+                        int field, delta;
+                        if (sscanf(line + 1, "%d %d", &field, &delta) == 2) {
+                            Settings::adjustField(field, delta);
+                            Clock::DateTime dt = Clock::now();
+                            Serial.printf("RTC %04d-%02d-%02d %02d:%02d:%02d\n",
+                                          dt.year, dt.month, dt.day,
+                                          dt.hour, dt.minute, dt.second);
+                        } else {
+                            Serial.println("Usage: K FIELD DELTA (0=year..5=sec)");
+                        }
+                    } else if (*line == 'P' || *line == 'p') {
+                        Serial.println("TOUCH sample 30s; press/swipe now");
+                        for (int i = 0; i < 300; i++) {
+                            uint16_t x, y, rawX, rawY;
+                            if (Display::readTouch(x, y, &rawX, &rawY)) {
+                                Serial.printf("TOUCH x=%u y=%u rawX=%u rawY=%u\n",
+                                              x, y, rawX, rawY);
+                            }
+                            delay(100);
+                        }
+                        Serial.println("TOUCH done");
+                    } else if (*line == 'A' || *line == 'a') {
+                        Battery::update();
+                        int millivolts = (int)(Battery::voltage() * 1000.0f + 0.5f);
+                        Serial.printf("BAT %d.%03dV %d%%%s\n",
+                                      millivolts / 1000, millivolts % 1000,
+                                      Battery::percent(),
+                                      Battery::present() ? "" : " (no battery/USB)");
                     } else if (*line == 'V' || *line == 'v') {
                         Serial.println("BUILD partial-rot-20261018");
                         Serial.printf("CLK sys=%u peri=%u\n",
@@ -257,6 +314,8 @@ void setup()
     Serial.println("Moon Phase Clock for RP2350-Touch-LCD-3.49");
 
     Display::begin();
+    Location::begin();
+    Battery::begin();
     ui_init();
 
     lv_label_set_text(ui_Screen1_Label_bootscreen, "Moon Phase Clock");
@@ -267,6 +326,7 @@ void setup()
 
     Clock::begin();
     Astronomy::begin();
+    Settings::begin();
 
     /* Paint one complete frame before turning the backlight on. */
     lv_refr_now(NULL);
@@ -283,6 +343,7 @@ void loop()
 
     Clock::update();
     Astronomy::update();
+    Settings::update();
     handleSerial();
     handlePowerButton();
 

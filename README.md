@@ -84,6 +84,7 @@ reference and are excluded from the build.
 | LCD backlight | GPIO 36 (PWM, active low) |
 | Touch (AXS15231B, I2C0, addr 0x3B) | SDA 32, SCL 33, INT 11 |
 | RTC PCF85063A (I2C1, addr 0x51) | SDA 6, SCL 7 |
+| Battery voltage (2:1 divider) | GPIO 40 / ADC0 |
 | Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
 | Power button | SYS_OUT GPIO 38 (low = pressed) |
 
@@ -99,24 +100,44 @@ dashboard mock:
 The panel itself is driven in its native **172x640 portrait** orientation; the
 LVGL flush callback rotates the logical buffer into 172x640 blocks in software.
 This matches Waveshare's reference implementation and avoids relying on the
-panel's MADCTL rotation mode.  The location pill shows `myCity` (for example
-`Beijing`); the moon image itself shows the current phase.
+panel's MADCTL rotation mode.  The location pill shows the current city
+(for example `Beijing` or `Paris`); the moon image itself shows the current phase.
+
+## Settings page
+
+Swipe **left or right** on the clock face to open Settings; swipe either direction to return.  You can also tap the location pill.
+
+The Settings page contains:
+
+* **Battery**: voltage on GPIO40/ADC0 (2:1 divider), percentage and bar.
+  With USB power and no 18650 installed the page shows `USB / No battery`.
+* **Date & time**: tap a field (year, month, day, hour, minute or second),
+  then use `-` / `+` to adjust it.  Every change is written to the RTC
+  immediately.  Invalid dates such as 31 February are rejected.
+* **Location**: Beijing, Paris, London, New York, Tokyo and Sydney.  The
+  selection is stored in EEPROM.  Each city has its own coordinates and
+  timezone/DST rule.  Changing city preserves the absolute UTC instant,
+  rewrites the RTC in the new local time, updates the location pill and
+  recalculates sunrise/sunset/moonrise/moonset.
+
+The default city still comes from `PIO/src/credential.h`; the EEPROM selection
+overrides it after the first change.
 
 ## Configure
 
-Edit `PIO/src/credential.h`:
+`PIO/src/credential.h` holds the **default** location (Beijing):
 
 ```cpp
-static const float myLat = 51.5074f;   // your latitude
-static const float myLon = -0.1278f;   // your longitude (east positive)
-static const char *myCity = "London";  // shown in the bordered box
-static const long  gmtOffset_sec = 3600;
-static const int   daylightOffset_sec = 3600; // 0 if not in DST
+static const float myLat = 40.0434412f;
+static const float myLon = 116.4152377f;
+static const char *myCity = "Beijing";
+static const long  gmtOffset_sec = 8 * 3600;
 ```
 
-The RTC stores **local time**.  On the first boot (or after the RTC battery is
-lost) it is seeded with the firmware build date/time.  Set it precisely over
-the USB serial console:
+Use the Settings page to switch city at runtime.  The RTC stores **local
+time**.  On the first boot (or after the RTC battery is lost) it is seeded with
+the firmware build date/time.  Set it precisely over the USB serial console or
+from the Settings page:
 
 ```text
 T 2026-10-17 22:30:00
@@ -127,6 +148,10 @@ Serial commands (115200 baud):
 | Command | Action |
 |---|---|
 | `T YYYY-MM-DD HH:MM:SS` | set the RTC (local time) |
+| `G` | open/close the Settings page |
+| `L` | list locations; `L 0..5` select a city |
+| `K FIELD DELTA` | adjust date/time field (0=year .. 5=second), for diagnostics |
+| `A` | print battery voltage and percentage |
 | `B 0..100` | set backlight brightness |
 | `F` | flip the display 180 degrees |
 | `X` / `Y` / `S` | invert touch X / invert touch Y / swap touch axes |
@@ -233,7 +258,15 @@ local time with `--time`.
   the remaining width.
 * **Power**: `SYS_EN` is asserted at the very start of `setup()` so the board
   stays on when running from the 18650 battery.  Holding the power button for
-  ~2.5 s releases the latch.
+  ~2.5 s releases the latch.  Battery voltage is measured on GPIO40/ADC0
+  through the board's 2:1 divider.
+* **Settings**: the selected city is persisted in the RP2350 EEPROM area
+  (one flash sector).  City switching preserves UTC, so the RTC is rewritten
+  to the new local time and astronomy is recalculated.
+* **RTC year base**: the PCF85063A stores the year as a 2000-based value.
+  Older firmware used a 1970 base (which made the chip's leap-year logic wrong
+  for 2026); this firmware migrates the stored value once and records a flag
+  in EEPROM.
 * **No WiFi**: the weather client, WiFi manager and NTP code were removed from
   the active build.  Everything is local and works without a network.  If you
   later add an external WiFi module, the old code is in `PIO/src/legacy/` as a
