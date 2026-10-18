@@ -25,6 +25,7 @@ namespace Clock
     time_t   utcEpoch();
     bool     dateChanged();
     bool     rtcPresent();
+    bool     timeWasLost();
 
     /* Set the PCF85063A from local date/time.  Returns false on I2C error
      * or invalid date/time.  The RTC only supports 2020..2069 here. */

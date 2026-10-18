@@ -229,7 +229,12 @@ make clean
 `make flash` waits for the board to boot and then runs the same RTC sync as
 `make sync_time`, so the clock should match the host immediately after flashing.
 The sync sends a UTC epoch; the firmware applies the currently selected city's
-timezone/DST before writing the RTC.
+timezone/DST before writing the RTC.  `make sync_time` retries if the board is
+still in its boot animation.
+
+Settings are snapshotted to EEPROM (location, brightness, TICK and the last
+known time).  On boot they are restored; the RTC remains the primary clock,
+and the snapshot time is used only if the RTC lost power.
 
 ## Build and flash
 

@@ -37,6 +37,7 @@ namespace
     Clock::DateTime lastTime = {2026, 1, 1, 0, 0, 0, 0};
     bool     haveTime        = false;
     bool     rtc_ok          = false;
+    bool     clockTimeLost   = false;
     int      rtcYearBase     = RTC_YEAR_BASE;
     bool     dayChanged      = true;
     unsigned long lastReadMs = 0;
@@ -270,6 +271,7 @@ namespace Clock
         DateTime dt;
         if (readRtc(dt, rtcYearBase)) {
             rtc_ok = true;
+            clockTimeLost = false;
             lastTime = dt;
             haveTime = true;
             formatTime(dt);
@@ -280,6 +282,7 @@ namespace Clock
              * (or edit this block) to correct it. */
             buildTime(dt);
             rtc_ok = writeRtc(dt, rtcYearBase);
+            clockTimeLost = true;
             lastTime = dt;
             haveTime = true;
             formatTime(dt);
@@ -372,6 +375,11 @@ namespace Clock
         return rtc_ok;
     }
 
+    bool timeWasLost()
+    {
+        return clockTimeLost;
+    }
+
     bool setDateTime(int year, int month, int day, int hour, int minute, int second)
     {
         if (year < 2020 || year > 2069 || month < 1 || month > 12 ||
@@ -393,6 +401,7 @@ namespace Clock
         if (!writeRtc(dt, rtcYearBase)) return false;
 
         rtc_ok = true;
+        clockTimeLost = false;
         lastTime = dt;
         haveTime = true;
         formatTime(dt);

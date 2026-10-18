@@ -15,6 +15,7 @@
 #include "clock.h"
 #include "location.h"
 #include "moon_intro.h"
+#include "settings_store.h"
 
 namespace
 {
@@ -350,6 +351,7 @@ namespace
         }
 
         if (Clock::setDateTime(year, month, day, hour, minute, second)) {
+            SettingsStore::save();
             if (selectedField <= FIELD_DAY) {
                 Astronomy::update(true);
             }
@@ -435,6 +437,7 @@ namespace Settings
             bool on = lv_obj_has_state(lv_event_get_target(event),
                                        LV_STATE_CHECKED);
             Audio::setEnabled(on);
+            SettingsStore::save();
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
         make_label(settingsScreen, 410, 8, 218, 16, "Swipe right to return",
@@ -598,6 +601,7 @@ namespace Settings
     {
         if (!settingsScreen || !openFlag) return;
         openFlag = false;
+        SettingsStore::save();
         lv_scr_load_anim(ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
         MoonIntro::play();
     }
@@ -628,6 +632,7 @@ namespace Settings
 
         int newOffset = Location::offsetForUtc(utc);
         Clock::setFromUtc(utc, newOffset);
+        SettingsStore::save();
         Astronomy::update(true);
 
         if (openFlag) refreshAll();

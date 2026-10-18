@@ -20,6 +20,7 @@
 #include "location.h"
 #include "moon_intro.h"
 #include "settings.h"
+#include "settings_store.h"
 
 extern const lv_img_dsc_t *ui_imgset_moon_[30];
 
@@ -147,6 +148,7 @@ namespace
     {
         Serial.println("Power off");
         Serial.flush();
+        SettingsStore::save();
         Brightness::forceOff();
         digitalWrite(POWER_LATCH_PIN, LOW);
 
@@ -286,6 +288,7 @@ namespace
                             sscanf(line + 1, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &s) == 6) {
                             if (Clock::setDateTime(y, mo, d, h, mi, s)) {
                                 Serial.println("RTC set");
+                                SettingsStore::save();
                                 Astronomy::update(true);
                             } else {
                                 Serial.println("Invalid date/time or RTC write failed");
@@ -347,6 +350,7 @@ namespace
                             int offset = Location::offsetForUtc(utc);
                             if (Clock::setFromUtc(utc, offset)) {
                                 Serial.println("RTC set");
+                                SettingsStore::save();
                                 Astronomy::update(true);
                             } else {
                                 Serial.println("Invalid UTC time or RTC write failed");
@@ -358,6 +362,7 @@ namespace
                         int field, delta;
                         if (sscanf(line + 1, "%d %d", &field, &delta) == 2) {
                             Settings::adjustField(field, delta);
+                            SettingsStore::save();
                             Clock::DateTime dt = Clock::now();
                             Serial.printf("RTC %04d-%02d-%02d %02d:%02d:%02d\n",
                                           dt.year, dt.month, dt.day,
@@ -486,6 +491,7 @@ void setup()
     Clock::begin();
     Audio::begin();
     Astronomy::begin();
+    SettingsStore::begin();
     Settings::begin();
 
     /* Start the 28-frame moon boot animation immediately after all init is
@@ -519,6 +525,7 @@ void loop()
     Audio::update();
 
     Astronomy::update();
+    SettingsStore::update();
     Settings::update();
     handleSwipeGestures();
     updateBrightnessHint();

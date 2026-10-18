@@ -137,8 +137,11 @@ def main(argv: list[str] | None = None) -> int:
         _dt.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").timestamp()
         if args.timestamp else time.time()
     )
-    if sync_over_usb(epoch, timestamp):
-        return 0
+    for _ in range(20):
+        if sync_over_usb(epoch, timestamp):
+            return 0
+        time.sleep(0.5)
+
     if fallback_serial(timestamp):
         return 0
     print("[sync_time] failed; is the board connected and running?", file=sys.stderr)
