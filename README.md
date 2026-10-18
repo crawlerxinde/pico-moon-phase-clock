@@ -84,7 +84,7 @@ reference and are excluded from the build.
 | LCD backlight | GPIO 36 (PWM, active low) |
 | Touch (AXS15231B, I2C0, addr 0x3B) | SDA 32, SCL 33, INT 11 |
 | RTC PCF85063A (I2C1, addr 0x51) | SDA 6, SCL 7 |
-| Battery voltage (2:1 divider) | GPIO 40 / ADC0 |
+| Battery voltage (3:1 divider) | GPIO 40 / ADC0 |
 | Power latch | SYS_EN GPIO 39 (must be driven HIGH) |
 | Power button | SYS_OUT GPIO 38 (low = pressed) |
 
@@ -109,7 +109,7 @@ Swipe **left or right** on the clock face to open Settings; swipe either directi
 
 The Settings page contains:
 
-* **Battery**: voltage on GPIO40/ADC0 (2:1 divider), percentage and bar.
+* **Battery**: voltage on GPIO40/ADC0 (3:1 divider), percentage and bar.
   With USB power and no 18650 installed the page shows `USB / No battery`.
 * **Date & time**: tap a field (year, month, day, hour, minute or second),
   then use `-` / `+` to adjust it.  Every change is written to the RTC
@@ -262,9 +262,9 @@ local time with `--time`.
   image remains 170x170 on the left; time, date, phase and rise/set times use
   the remaining width.
 * **Power**: `SYS_EN` is asserted at the very start of `setup()` so the board
-  stays on when running from the 18650 battery.  Holding the power button for
-  ~2.5 s releases the latch.  Battery voltage is measured on GPIO40/ADC0
-  through the board's 2:1 divider.
+  stays on when running from the 18650 battery.  A short press of the power
+  button toggles the backlight; holding it for ~1.5 s powers the board off.
+  Battery voltage is measured on GPIO40/ADC0 through the board's 3:1 divider.
 * **Settings**: the selected city is persisted in the RP2350 EEPROM area
   (one flash sector).  City switching preserves UTC, so the RTC is rewritten
   to the new local time and astronomy is recalculated.

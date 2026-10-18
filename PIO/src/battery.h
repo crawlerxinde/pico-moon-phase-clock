@@ -4,7 +4,7 @@
 
 namespace Battery
 {
-    /* Battery voltage is divided by 2 and fed to GPIO40 / ADC0. */
+    /* Battery voltage is divided by 3 and fed to GPIO40 / ADC0. */
     void begin();
     void update();
 

@@ -3,6 +3,7 @@
 #include <ui.h>
 
 #include <hardware/clocks.h>
+#include <hardware/watchdog.h>
 
 #include <stdlib.h>
 
@@ -25,9 +26,15 @@ namespace
     unsigned long bootStartMs = 0;
     bool          bootHidden = false;
 
+    constexpr unsigned long POWER_LONG_MS  = 1500;
+    constexpr unsigned long POWER_SHORT_MS = 30;
+
     unsigned long buttonDownMs = 0;
     bool          buttonWasDown = false;
+    bool          buttonIgnoreUntilRelease = false;
     bool          displayFlipped = false;
+    bool          screenOn = true;
+    uint8_t       currentBrightness = defaultBrightness;
 
     char serialBuf[64];
     size_t serialLen = 0;
@@ -118,21 +125,49 @@ namespace
         }
     }
 
+    void powerOff()
+    {
+        Serial.println("Power off");
+        Serial.flush();
+        LCD_SetBacklight(0);
+        digitalWrite(POWER_LATCH_PIN, LOW);
+
+        /* If the board is USB-powered the latch cannot cut power.  Wait for
+         * the button release, then for a new press to reboot cleanly. */
+        while (digitalRead(POWER_BUTTON_PIN) == LOW) delay(20);
+        while (digitalRead(POWER_BUTTON_PIN) != 0) delay(20);
+        digitalWrite(POWER_LATCH_PIN, HIGH);
+        delay(100);
+        watchdog_reboot(0, 0, 0);
+        while (true) { tight_loop_contents(); }
+    }
+
     void handlePowerButton()
     {
         bool down = digitalRead(POWER_BUTTON_PIN) == LOW;
         unsigned long now = millis();
 
+        /* Ignore the button press that powered the board on until it is
+         * released, otherwise a slow release could trigger a short press. */
+        if (buttonIgnoreUntilRelease) {
+            if (!down) buttonIgnoreUntilRelease = false;
+            return;
+        }
+
         if (down && !buttonWasDown) {
             buttonWasDown = true;
             buttonDownMs = now;
-        } else if (!down) {
+        } else if (!down && buttonWasDown) {
             buttonWasDown = false;
-        } else if (buttonWasDown && (now - buttonDownMs > 2500)) {
-            Serial.println("Power off");
-            Serial.flush();
-            digitalWrite(POWER_LATCH_PIN, LOW);
-            while (true) { tight_loop_contents(); }
+            unsigned long duration = now - buttonDownMs;
+            if (duration >= POWER_SHORT_MS && duration < POWER_LONG_MS) {
+                screenOn = !screenOn;
+                LCD_SetBacklight(screenOn ? currentBrightness : 0);
+                Serial.printf("Screen: %s\n", screenOn ? "on" : "off");
+            }
+        } else if (down && buttonWasDown &&
+                   (now - buttonDownMs) >= POWER_LONG_MS) {
+            powerOff();
         }
     }
 
@@ -185,8 +220,10 @@ namespace
                         int percent = atoi(line + 1);
                         if (percent < 0) percent = 0;
                         if (percent > 100) percent = 100;
-                        LCD_SetBacklight((uint8_t)percent);
-                        Serial.printf("Backlight: %d%%\n", percent);
+                        currentBrightness = (uint8_t)percent;
+                        if (screenOn) LCD_SetBacklight(currentBrightness);
+                        Serial.printf("Backlight: %d%% (%s)\n", percent,
+                                      screenOn ? "on" : "off");
                     } else if (*line == 'F' || *line == 'f') {
                         displayFlipped = !displayFlipped;
                         Display::setFlipped(displayFlipped);
@@ -307,6 +344,7 @@ void setup()
     digitalWrite(POWER_LATCH_PIN, HIGH);
 
     pinMode(POWER_BUTTON_PIN, INPUT_PULLUP);
+    buttonIgnoreUntilRelease = (digitalRead(POWER_BUTTON_PIN) == LOW);
 
     Serial.begin(115200);
     delay(100);
@@ -330,7 +368,7 @@ void setup()
 
     /* Paint one complete frame before turning the backlight on. */
     lv_refr_now(NULL);
-    LCD_SetBacklight(defaultBrightness);
+    LCD_SetBacklight(currentBrightness);
 
     bootStartMs = millis();
     printHelp();
