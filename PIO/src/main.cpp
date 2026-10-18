@@ -36,6 +36,13 @@ namespace
     bool          screenOn = true;
     uint8_t       currentBrightness = defaultBrightness;
 
+    /* Vertical swipe on the clock page adjusts the backlight. */
+    bool          brightnessTouchActive = false;
+    bool          brightnessSwipeFired = false;
+    uint16_t      brightnessStartX = 0;
+    uint16_t      brightnessStartY = 0;
+    unsigned long brightnessLastTouchMs = 0;
+
     char serialBuf[64];
     size_t serialLen = 0;
 
@@ -140,6 +147,43 @@ namespace
         delay(100);
         watchdog_reboot(0, 0, 0);
         while (true) { tight_loop_contents(); }
+    }
+
+    void handleBrightnessSwipe()
+    {
+        if (Settings::isOpen()) {
+            brightnessTouchActive = false;
+            return;
+        }
+
+        unsigned long nowMs = millis();
+        if (Display::TouchDown) {
+            if (!brightnessTouchActive) {
+                brightnessTouchActive = true;
+                brightnessSwipeFired = false;
+                brightnessStartX = Display::TouchLastX;
+                brightnessStartY = Display::TouchLastY;
+            } else if (!brightnessSwipeFired) {
+                int dx = (int)Display::TouchLastX - (int)brightnessStartX;
+                int dy = (int)Display::TouchLastY - (int)brightnessStartY;
+
+                if (abs(dy) >= 60 && abs(dy) > abs(dx)) {
+                    brightnessSwipeFired = true;
+                    if (screenOn) {
+                        int next = (int)currentBrightness + ((dy < 0) ? 10 : -10);
+                        if (next < 10) next = 10;
+                        if (next > 100) next = 100;
+                        currentBrightness = (uint8_t)next;
+                        LCD_SetBacklight(currentBrightness);
+                        Serial.printf("Brightness: %d%%\n", currentBrightness);
+                    }
+                }
+            }
+            brightnessLastTouchMs = nowMs;
+        } else if (brightnessTouchActive &&
+                   (nowMs - brightnessLastTouchMs) > 300) {
+            brightnessTouchActive = false;
+        }
     }
 
     void handlePowerButton()
@@ -382,6 +426,7 @@ void loop()
     Clock::update();
     Astronomy::update();
     Settings::update();
+    handleBrightnessSwipe();
     handleSerial();
     handlePowerButton();
 
