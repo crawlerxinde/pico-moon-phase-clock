@@ -251,13 +251,14 @@ namespace
         Serial.println("Moon Phase Clock - RP2350-Touch-LCD-3.49");
         Serial.println("Commands:");
         Serial.println("  T YYYY-MM-DD HH:MM:SS   set RTC (local time)");
-        Serial.println("  B 20..100               set backlight brightness (min 20%)");
+        Serial.println("  B 40..100               set backlight brightness (min 40%)");
         Serial.println("  F                       flip display 180 degrees");
         Serial.println("  X / Y / S               invert X / invert Y / swap touch axes");
         Serial.println("  C                       capture screenshot (RGB565 over USB)");
         Serial.println("  G                       open/close Settings page");
         Serial.println("  L                       list locations; L 0..5 select");
         Serial.println("  K FIELD DELTA           adjust date/time field (0=year..5=sec)");
+        Serial.println("  U UNIX_EPOCH            set RTC from UTC (uses current city)");
         Serial.println("  A                       print battery voltage/percentage");
         Serial.println("  Q                       print ES8311 codec ID");
         Serial.println("  M                       measure audio MCLK/BCLK/LRCLK");
@@ -338,6 +339,20 @@ namespace
                             for (int i = 0; i < Location::count(); i++) {
                                 Serial.printf("  %d  %s\n", i, Location::at(i).name);
                             }
+                        }
+                    } else if (*line == 'U' || *line == 'u') {
+                        long long epoch;
+                        if (sscanf(line + 1, "%lld", &epoch) == 1 && epoch > 0) {
+                            time_t utc = (time_t)epoch;
+                            int offset = Location::offsetForUtc(utc);
+                            if (Clock::setFromUtc(utc, offset)) {
+                                Serial.println("RTC set");
+                                Astronomy::update(true);
+                            } else {
+                                Serial.println("Invalid UTC time or RTC write failed");
+                            }
+                        } else {
+                            Serial.println("Usage: U UNIX_EPOCH");
                         }
                     } else if (*line == 'K' || *line == 'k') {
                         int field, delta;

@@ -378,7 +378,7 @@ namespace Settings
         brightnessSlider = lv_slider_create(settingsScreen);
         lv_obj_set_pos(brightnessSlider, 200, 9);
         lv_obj_set_size(brightnessSlider, 80, 14);
-        lv_slider_set_range(brightnessSlider, 20, 100);
+        lv_slider_set_range(brightnessSlider, 40, 100);
         lv_slider_set_value(brightnessSlider, Brightness::current(), LV_ANIM_OFF);
         lv_obj_set_ext_click_area(brightnessSlider, 6);
         lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0x333333),

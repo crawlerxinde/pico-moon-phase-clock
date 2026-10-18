@@ -19,7 +19,7 @@ VID = 0x2E8A
 PID = 0x000F
 
 
-def sync_over_usb(timestamp: str, timeout: float = 4.0) -> bool:
+def sync_over_usb(epoch: int, timestamp: str, timeout: float = 4.0) -> bool:
     if usb is None:
         return False
 
@@ -70,7 +70,7 @@ def sync_over_usb(timestamp: str, timeout: float = 4.0) -> bool:
         return False
 
     try:
-        ep_out.write((f"T {timestamp}\n").encode("ascii"), timeout=2000)
+        ep_out.write((f"U {epoch}\n").encode("ascii"), timeout=2000)
     except Exception as exc:
         print(f"[sync_time] write failed: {exc}", file=sys.stderr)
         return False
@@ -133,7 +133,11 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError:
             parser.error('--time must use the format "YYYY-MM-DD HH:MM:SS"')
 
-    if sync_over_usb(timestamp):
+    epoch = int(
+        _dt.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").timestamp()
+        if args.timestamp else time.time()
+    )
+    if sync_over_usb(epoch, timestamp):
         return 0
     if fallback_serial(timestamp):
         return 0

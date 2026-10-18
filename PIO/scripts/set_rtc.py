@@ -2,11 +2,12 @@
 """
 Set the Moon Phase Clock RTC to the host's local time.
 
-The firmware accepts this command on its USB CDC serial console:
+The helper sends a UTC epoch over the USB CDC console:
 
-    T YYYY-MM-DD HH:MM:SS
+    U <unix-epoch>
 
-This helper is used automatically after `pio run -t upload` (see
+The firmware converts it to the currently selected city's local time.  This
+helper is used automatically after `pio run -t upload` (see
 scripts/post_upload.py).  It can also be run manually:
 
     python scripts/set_rtc.py
@@ -80,7 +81,7 @@ def _candidate_ports(preferred: str | None = None) -> list[str]:
     return result
 
 
-def _try_port(port: str, timestamp: str, verbose: bool) -> bool:
+def _try_port(port: str, timestamp: str, epoch: int, verbose: bool) -> bool:
     if serial is None:
         return False
 
@@ -94,7 +95,7 @@ def _try_port(port: str, timestamp: str, verbose: bool) -> bool:
             except Exception:
                 pass
 
-            command = f"T {timestamp}\n".encode("ascii")
+            command = f"U {epoch}\n".encode("ascii")
             ser.write(command)
             ser.flush()
 
@@ -130,6 +131,9 @@ def set_rtc(port: str | None = None,
 
     if timestamp is None:
         timestamp = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        epoch = int(time.time())
+    else:
+        epoch = int(_dt.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").timestamp())
 
     deadline = time.time() + timeout
     last_ports: list[str] = []
@@ -139,7 +143,7 @@ def set_rtc(port: str | None = None,
         last_ports = ports
         if ports:
             for candidate in ports:
-                if _try_port(candidate, timestamp, verbose):
+                if _try_port(candidate, timestamp, epoch, verbose):
                     return True
         time.sleep(0.5)
 

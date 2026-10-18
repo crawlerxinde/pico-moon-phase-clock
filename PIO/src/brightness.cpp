@@ -4,7 +4,7 @@
 
 namespace
 {
-    constexpr int MIN_PERCENT = 20;
+    constexpr int MIN_PERCENT = 40;
     int  currentPercent = 100;
     bool screenOnFlag = true;
 }
