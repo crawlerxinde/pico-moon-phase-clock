@@ -45,6 +45,7 @@ namespace
      * vertical adjusts brightness.  Only one action is allowed per gesture. */
     constexpr int SWIPE_HORIZONTAL_PX = 100;
     constexpr int SWIPE_VERTICAL_PX   = 60;
+    constexpr int EDGE_SWIPE_PX       = 64;
     constexpr int BRIGHTNESS_STEP     = 20;
     bool          swipeTouchActive = false;
     bool          swipeFired = false;
@@ -186,8 +187,15 @@ namespace
 
                 if (adx >= SWIPE_HORIZONTAL_PX && adx > ady) {
                     swipeFired = true;
-                    if (Settings::isOpen()) Settings::hide();
-                    else                    Settings::show();
+                    if (Settings::isOpen()) {
+                        /* Returning from Settings must start at a screen
+                         * edge, so slider/switch interaction cannot close it. */
+                        bool fromEdge = swipeStartX <= EDGE_SWIPE_PX ||
+                                        swipeStartX >= Display::Width - EDGE_SWIPE_PX;
+                        if (fromEdge) Settings::hide();
+                    } else {
+                        Settings::show();
+                    }
                 } else if (!Settings::isOpen() &&
                            ady >= SWIPE_VERTICAL_PX && ady > adx) {
                     swipeFired = true;

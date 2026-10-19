@@ -477,7 +477,7 @@ namespace Settings
             SettingsStore::save();
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        make_label(settingsScreen, 410, 8, 218, 16, "Swipe right to return",
+        make_label(settingsScreen, 410, 8, 218, 16, "Swipe from edge to return",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_RIGHT);
 
         lv_obj_t *headerLine = lv_obj_create(settingsScreen);
