@@ -10,6 +10,7 @@
 
 #include "astronomy.h"
 #include "audio_tick.h"
+#include "display.h"
 #include "battery.h"
 #include "brightness.h"
 #include "clock.h"
@@ -51,6 +52,7 @@ namespace
     int selectedField = FIELD_MINUTE;
     bool openFlag = false;
     bool controlTouchActive = false;
+    bool controlGestureLock = false;
     unsigned long controlTouchReleasedMs = 0;
     unsigned long lastUiRefreshMs = 0;
     unsigned long lastOffsetRefreshMs = 0;
@@ -91,6 +93,7 @@ namespace
         lv_event_code_t code = lv_event_get_code(event);
         if (code == LV_EVENT_PRESSED) {
             controlTouchActive = true;
+            controlGestureLock = true;
         } else if (code == LV_EVENT_RELEASED ||
                    code == LV_EVENT_PRESS_LOST) {
             controlTouchActive = false;
@@ -399,8 +402,8 @@ namespace Settings
          * and stay on top, so they still receive their own touches. */
         lv_obj_t *headerGuard = lv_obj_create(settingsScreen);
         lv_obj_remove_style_all(headerGuard);
-        lv_obj_set_pos(headerGuard, 130, 0);
-        lv_obj_set_size(headerGuard, 280, 40);
+        lv_obj_set_pos(headerGuard, 120, 0);
+        lv_obj_set_size(headerGuard, 300, 48);
         lv_obj_add_flag(headerGuard, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_clear_flag(headerGuard, LV_OBJ_FLAG_SCROLLABLE);
         guard_control(headerGuard);
@@ -446,7 +449,7 @@ namespace Settings
         make_label(settingsScreen, 328, 8, 30, 16, "TICK",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
         tickSwitch = lv_switch_create(settingsScreen);
-        lv_obj_set_pos(tickSwitch, 362, 9);
+        lv_obj_set_pos(tickSwitch, 362, 7);
         lv_obj_set_size(tickSwitch, 36, 18);
         lv_obj_set_ext_click_area(tickSwitch, 8);
         lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0x333333),
@@ -647,9 +650,19 @@ namespace Settings
 
     bool swipeBlocked()
     {
-        return controlTouchActive ||
-               (controlTouchReleasedMs != 0 &&
-                (millis() - controlTouchReleasedMs) < 250);
+        if (controlTouchActive) return true;
+
+        if (controlGestureLock) {
+            /* Keep the lock for the rest of the physical touch, even if the
+             * slider sends PRESS_LOST when the finger leaves its bounds. */
+            if (Display::TouchDown) return true;
+            if (controlTouchReleasedMs != 0 &&
+                (millis() - controlTouchReleasedMs) < 300) {
+                return true;
+            }
+            controlGestureLock = false;
+        }
+        return false;
     }
 
     void adjustField(int field, int delta)
