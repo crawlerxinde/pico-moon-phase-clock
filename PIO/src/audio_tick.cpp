@@ -80,7 +80,7 @@ namespace Audio
         es8311_init(pico_audio);
         es8311_sample_frequency_config(pico_audio.mclk_freq,
                                        pico_audio.sample_freq);
-        es8311_voice_volume_set(55);
+        es8311_voice_volume_set(PICO_AUDIO_VOLUME);
 
         mclk_pio_init();
         dout_pio_init();
