@@ -50,6 +50,8 @@ namespace
 
     int selectedField = FIELD_MINUTE;
     bool openFlag = false;
+    bool controlTouchActive = false;
+    unsigned long controlTouchReleasedMs = 0;
     unsigned long lastUiRefreshMs = 0;
     unsigned long lastOffsetRefreshMs = 0;
 
@@ -82,6 +84,23 @@ namespace
         lv_obj_set_style_radius(panel, 8, 0);
         lv_obj_clear_flag(panel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
         return panel;
+    }
+
+    void control_event_cb(lv_event_t *event)
+    {
+        lv_event_code_t code = lv_event_get_code(event);
+        if (code == LV_EVENT_PRESSED) {
+            controlTouchActive = true;
+        } else if (code == LV_EVENT_RELEASED ||
+                   code == LV_EVENT_PRESS_LOST) {
+            controlTouchActive = false;
+            controlTouchReleasedMs = millis();
+        }
+    }
+
+    void guard_control(lv_obj_t *obj)
+    {
+        lv_obj_add_event_cb(obj, control_event_cb, LV_EVENT_ALL, NULL);
     }
 
     lv_obj_t *make_button(lv_obj_t *parent, int x, int y, int w, int h,
@@ -398,6 +417,7 @@ namespace Settings
         lv_obj_set_style_pad_all(brightnessSlider, 0, LV_PART_KNOB);
         lv_obj_set_style_radius(brightnessSlider, LV_RADIUS_CIRCLE,
                                 LV_PART_KNOB);
+        guard_control(brightnessSlider);
         lv_obj_add_event_cb(brightnessSlider, [](lv_event_t *event) {
             lv_obj_t *slider = lv_event_get_target(event);
             int value = lv_slider_get_value(slider);
@@ -433,6 +453,7 @@ namespace Settings
         if (Audio::enabled()) {
             lv_obj_add_state(tickSwitch, LV_STATE_CHECKED);
         }
+        guard_control(tickSwitch);
         lv_obj_add_event_cb(tickSwitch, [](lv_event_t *event) {
             bool on = lv_obj_has_state(lv_event_get_target(event),
                                        LV_STATE_CHECKED);
@@ -609,6 +630,13 @@ namespace Settings
     bool isOpen()
     {
         return openFlag;
+    }
+
+    bool swipeBlocked()
+    {
+        return controlTouchActive ||
+               (controlTouchReleasedMs != 0 &&
+                (millis() - controlTouchReleasedMs) < 250);
     }
 
     void adjustField(int field, int delta)

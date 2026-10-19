@@ -165,6 +165,13 @@ namespace
     void handleSwipeGestures()
     {
         unsigned long nowMs = millis();
+        if (Settings::isOpen() && Settings::swipeBlocked()) {
+            if (Display::TouchDown) {
+                swipeTouchActive = false;
+                swipeFired = true;
+            }
+            return;
+        }
         if (Display::TouchDown) {
             if (!swipeTouchActive) {
                 swipeTouchActive = true;

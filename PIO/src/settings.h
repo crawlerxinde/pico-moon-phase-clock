@@ -9,6 +9,10 @@ namespace Settings
     void hide();
     bool isOpen();
 
+    /* True while a Settings control is being pressed (or just released), so
+     * the clock-page swipe detector does not close the page by accident. */
+    bool swipeBlocked();
+
     /* Change the active city and keep the absolute UTC instant unchanged.
      * The RTC is rewritten in the new city's local time. */
     void selectLocation(int index);
