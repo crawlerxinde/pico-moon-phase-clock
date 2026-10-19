@@ -393,6 +393,18 @@ namespace Settings
         lv_obj_set_style_bg_opa(settingsScreen, 255, 0);
         make_label(settingsScreen, 12, 5, 120, 22, "Settings",
                    &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
+        /* Transparent touch guard around the header controls.  A finger that
+         * starts in this band is treated as adjusting BRIGHT/TICK, not as a
+         * swipe back to the clock.  The slider/switch are created afterwards
+         * and stay on top, so they still receive their own touches. */
+        lv_obj_t *headerGuard = lv_obj_create(settingsScreen);
+        lv_obj_remove_style_all(headerGuard);
+        lv_obj_set_pos(headerGuard, 130, 0);
+        lv_obj_set_size(headerGuard, 280, 40);
+        lv_obj_add_flag(headerGuard, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_clear_flag(headerGuard, LV_OBJ_FLAG_SCROLLABLE);
+        guard_control(headerGuard);
+
         make_label(settingsScreen, 140, 8, 58, 16, "BRIGHT",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
 
@@ -401,7 +413,7 @@ namespace Settings
         lv_obj_set_size(brightnessSlider, 80, 14);
         lv_slider_set_range(brightnessSlider, 40, 100);
         lv_slider_set_value(brightnessSlider, Brightness::current(), LV_ANIM_OFF);
-        lv_obj_set_ext_click_area(brightnessSlider, 6);
+        lv_obj_set_ext_click_area(brightnessSlider, 10);
         lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0x333333),
                                   LV_PART_MAIN);
         lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_MAIN);
@@ -436,6 +448,7 @@ namespace Settings
         tickSwitch = lv_switch_create(settingsScreen);
         lv_obj_set_pos(tickSwitch, 362, 9);
         lv_obj_set_size(tickSwitch, 36, 18);
+        lv_obj_set_ext_click_area(tickSwitch, 8);
         lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0x333333),
                                   LV_PART_MAIN);
         lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_MAIN);
