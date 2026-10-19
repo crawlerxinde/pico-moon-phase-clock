@@ -39,7 +39,7 @@
 
 #define PICO_MCLK_FREQ      24000 * 256
 #define PICO_SAMPLE_FREQ    24000
-#define PICO_AUDIO_VOLUME   40
+#define PICO_AUDIO_VOLUME   50
 #define PICO_AUDIO_COUNT    1
 #define PICO_AUDIO_RES_IN   16
 #define PICO_AUDIO_RES_OUT  16
