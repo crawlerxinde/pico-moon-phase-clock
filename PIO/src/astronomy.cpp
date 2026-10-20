@@ -309,7 +309,26 @@ namespace
         return false;
     }
 
-    void formatEvent(time_t utcEvent, time_t localOffset, char *out, size_t outSize)
+    int localDayOffset(time_t utcEvent, time_t localOffset,
+                       const Clock::DateTime &today)
+    {
+        if (utcEvent == 0) return 0;
+
+        time_t shifted = utcEvent + localOffset;
+        struct tm tmValue;
+        if (!gmtime_r(&shifted, &tmValue)) return 0;
+
+        int64_t todayDays = Clock::daysFromCivil(today.year,
+                                                 (unsigned)today.month,
+                                                 (unsigned)today.day);
+        int64_t eventDays = Clock::daysFromCivil(tmValue.tm_year + 1900,
+                                                 (unsigned)tmValue.tm_mon + 1,
+                                                 (unsigned)tmValue.tm_mday);
+        return (int)(eventDays - todayDays);
+    }
+
+    void formatEvent(time_t utcEvent, time_t localOffset, char *out,
+                     size_t outSize, int dayOffset = 0)
     {
         if (utcEvent == 0) {
             snprintf(out, outSize, "--");
@@ -320,8 +339,16 @@ namespace
         struct tm tmValue;
         gmtime_r(&shifted, &tmValue);
 
-        /* The original UI shows 24-hour times around the sun/moon icons. */
-        snprintf(out, outSize, "%02d:%02d", tmValue.tm_hour, tmValue.tm_min);
+        /* The original UI shows 24-hour times around the sun/moon icons.
+         * Moon events can be on the next day (or the day after when the
+         * lunar day is longer than 24 h), so mark those with +1/+2. */
+        if (dayOffset > 0) {
+            snprintf(out, outSize, "%02d:%02d+%d",
+                     tmValue.tm_hour, tmValue.tm_min, dayOffset);
+        } else {
+            snprintf(out, outSize, "%02d:%02d",
+                     tmValue.tm_hour, tmValue.tm_min);
+        }
     }
 
 }
@@ -344,20 +371,28 @@ namespace Astronomy
 
         Clock::DateTime dt = Clock::now();
         int localOffset = Location::offsetForDate(dt.year, dt.month, dt.day);
-        time_t localMidnight = (time_t)(Clock::daysFromCivil(dt.year, (unsigned)dt.month, (unsigned)dt.day) * 86400);
-        time_t utcStart = localMidnight - localOffset;
+        time_t utcNow = Clock::utcEpoch();
+
+        /* All four rise/set rows show the next event after the current
+         * instant.  A 30 h window covers a full lunar day, which is slightly
+         * longer than 24 h, so the next event cannot fall outside the search. */
+        const time_t nextEventEnd = utcNow + 30 * 3600;
 
         time_t sunrise = 0, sunset = 0, moonrise = 0, moonset = 0;
-        findEvent(false, utcStart, utcStart + 86400, 600, true,  sunrise);
-        findEvent(false, utcStart, utcStart + 86400, 600, false, sunset);
-        findEvent(true,  utcStart, utcStart + 86400, 600, true,  moonrise);
-        findEvent(true,  utcStart, utcStart + 86400, 600, false, moonset);
+        findEvent(false, utcNow, nextEventEnd, 600, true,  sunrise);
+        findEvent(false, utcNow, nextEventEnd, 600, false, sunset);
+        findEvent(true,  utcNow, nextEventEnd, 600, true,  moonrise);
+        findEvent(true,  utcNow, nextEventEnd, 600, false, moonset);
 
         char sunriseText[16], sunsetText[16], moonriseText[16], moonsetText[16];
-        formatEvent(sunrise,  localOffset, sunriseText,  sizeof(sunriseText));
-        formatEvent(sunset,   localOffset, sunsetText,   sizeof(sunsetText));
-        formatEvent(moonrise, localOffset, moonriseText, sizeof(moonriseText));
-        formatEvent(moonset,  localOffset, moonsetText,  sizeof(moonsetText));
+        formatEvent(sunrise,  localOffset, sunriseText,  sizeof(sunriseText),
+                    localDayOffset(sunrise, localOffset, dt));
+        formatEvent(sunset,   localOffset, sunsetText,   sizeof(sunsetText),
+                    localDayOffset(sunset, localOffset, dt));
+        formatEvent(moonrise, localOffset, moonriseText, sizeof(moonriseText),
+                    localDayOffset(moonrise, localOffset, dt));
+        formatEvent(moonset,  localOffset, moonsetText,  sizeof(moonsetText),
+                    localDayOffset(moonset, localOffset, dt));
 
         currentFrame = moonFrame();
 

@@ -114,14 +114,25 @@ LVGL flush callback rotates the logical buffer into 172x640 blocks in software.
 This matches Waveshare's reference implementation and avoids relying on the
 panel's MADCTL rotation mode.  The location pill shows the current city
 (for example `Beijing` or `Paris`); the moon image itself shows the current phase.
+Sunrise, sunset, moonrise and moonset all show the **next** event after the
+current time.  A `+1` or `+2` suffix marks that the event falls on the next day
+or the day after; this is common for moon events because a lunar day is slightly
+longer than 24 hours.
 
 ## Settings page
 
 On the clock face:
 
-* swipe **up / down** to increase / decrease brightness by 20% (clamped to 40–100%),
-* swipe **left or right** to open Settings (swipe either direction to return),
+* swipe **up / down** outside the left column to increase / decrease brightness
+  by 20% (clamped to 40–100%),
+* swipe **left or right in the left column** to open Settings; the same gesture
+  in the left column returns from Settings,
 * or tap the location pill to open Settings.
+
+The left column (`x < 180`) is the dedicated page-swipe zone.  It covers the
+moon tile on the clock page and the battery card on the Settings page, so page
+navigation never competes with the brightness slider, TICK switch, date/time
+fields or city list.
 
 The Settings page contains:
 

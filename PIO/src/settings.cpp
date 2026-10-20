@@ -406,8 +406,8 @@ namespace Settings
          * and stay on top, so they still receive their own touches. */
         lv_obj_t *headerGuard = lv_obj_create(settingsScreen);
         lv_obj_remove_style_all(headerGuard);
-        lv_obj_set_pos(headerGuard, 120, 0);
-        lv_obj_set_size(headerGuard, 300, 48);
+        lv_obj_set_pos(headerGuard, 190, 0);
+        lv_obj_set_size(headerGuard, 230, 48);
         lv_obj_add_flag(headerGuard, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_clear_flag(headerGuard, LV_OBJ_FLAG_SCROLLABLE);
         guard_control(headerGuard);
@@ -481,7 +481,7 @@ namespace Settings
             SettingsStore::save();
         }, LV_EVENT_VALUE_CHANGED, NULL);
 
-        make_label(settingsScreen, 410, 8, 218, 16, "Swipe from edge to return",
+        make_label(settingsScreen, 410, 8, 218, 16, "Swipe left column to return",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_RIGHT);
 
         lv_obj_t *headerLine = lv_obj_create(settingsScreen);
@@ -630,20 +630,32 @@ namespace Settings
 
     }
 
-    void show()
+    static lv_scr_load_anim_t swipeAnimation(int swipeDx,
+                                              lv_scr_load_anim_t fallback)
+    {
+        if (swipeDx < 0) return LV_SCR_LOAD_ANIM_MOVE_LEFT;
+        if (swipeDx > 0) return LV_SCR_LOAD_ANIM_MOVE_RIGHT;
+        return fallback;
+    }
+
+    void show(int swipeDx)
     {
         if (!settingsScreen || openFlag) return;
         openFlag = true;
         refreshAll();
-        lv_scr_load_anim(settingsScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 180, 0, false);
+        lv_scr_load_anim(settingsScreen,
+                         swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_LEFT),
+                         150, 0, false);
     }
 
-    void hide()
+    void hide(int swipeDx)
     {
         if (!settingsScreen || !openFlag) return;
         openFlag = false;
         SettingsStore::save();
-        lv_scr_load_anim(ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
+        lv_scr_load_anim(ui_Screen1,
+                         swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_RIGHT),
+                         150, 0, false);
         MoonIntro::play();
     }
 

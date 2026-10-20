@@ -41,11 +41,12 @@ namespace
     bool          buttonIgnoreUntilRelease = false;
     bool          displayFlipped = false;
 
-    /* Single gesture state machine: horizontal opens/closes Settings,
-     * vertical adjusts brightness.  Only one action is allowed per gesture. */
-    constexpr int SWIPE_HORIZONTAL_PX = 100;
+    /* Single gesture state machine.  The left column is the dedicated page
+     * swipe zone; outside it, vertical swipes adjust brightness.  Only one
+     * action is allowed per gesture. */
+    constexpr int SWIPE_HORIZONTAL_PX = 50;
     constexpr int SWIPE_VERTICAL_PX   = 60;
-    constexpr int EDGE_SWIPE_PX       = 64;
+    constexpr int SWIPE_ZONE_WIDTH    = 180;
     constexpr int BRIGHTNESS_STEP     = 20;
     bool          swipeTouchActive = false;
     bool          swipeFired = false;
@@ -185,18 +186,19 @@ namespace
                 int adx = abs(dx);
                 int ady = abs(dy);
 
-                if (adx >= SWIPE_HORIZONTAL_PX && adx > ady) {
+                const bool inSwipeZone = swipeStartX < SWIPE_ZONE_WIDTH;
+
+                if (inSwipeZone &&
+                    adx >= SWIPE_HORIZONTAL_PX &&
+                    adx * 2 > ady * 3) {
                     swipeFired = true;
                     if (Settings::isOpen()) {
-                        /* Returning from Settings must start at a screen
-                         * edge, so slider/switch interaction cannot close it. */
-                        bool fromEdge = swipeStartX <= EDGE_SWIPE_PX ||
-                                        swipeStartX >= Display::Width - EDGE_SWIPE_PX;
-                        if (fromEdge) Settings::hide();
+                        Settings::hide(dx);
                     } else {
-                        Settings::show();
+                        Settings::show(dx);
                     }
-                } else if (!Settings::isOpen() &&
+                } else if (!inSwipeZone &&
+                           !Settings::isOpen() &&
                            ady >= SWIPE_VERTICAL_PX && ady > adx) {
                     swipeFired = true;
                     if (Brightness::screenOn()) {

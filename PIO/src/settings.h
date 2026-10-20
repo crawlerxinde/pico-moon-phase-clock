@@ -5,8 +5,10 @@ namespace Settings
     void begin();
     void update();
 
-    void show();
-    void hide();
+    /* A negative swipeDx slides the incoming page from the right; a positive
+     * one slides it from the left.  Zero keeps the default animation. */
+    void show(int swipeDx = 0);
+    void hide(int swipeDx = 0);
     bool isOpen();
 
     /* True while a Settings control is being pressed (or just released), so
