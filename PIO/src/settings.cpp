@@ -46,17 +46,21 @@ namespace
     lv_obj_t *tickSwitch = nullptr;
 
     lv_obj_t *locationScreen = nullptr;
-    lv_obj_t *locationList = nullptr;
-    lv_obj_t *locationRow[256] = {nullptr};
     lv_obj_t *locationOffsetLabel = nullptr;
     lv_obj_t *locationCurrentLabel = nullptr;
-    lv_obj_t *locationQuickButton[5] = {nullptr};
-    int       locationQuickIndex[5] = {0, 1, 2, 3, 4};
+    lv_obj_t *locationQuickButton[6] = {nullptr};
+    int       locationQuickIndex[6] = {0, 1, 2, 3, 4, 5};
     lv_obj_t *locationPickerCityLabel = nullptr;
-    lv_obj_t *locationLetterButton[27] = {nullptr};
+    lv_obj_t *locationLetterRoller = nullptr;
+    lv_obj_t *locationCityRoller = nullptr;
+    int       locationCityIndices[256] = {0};
+    int       locationCityCount = 0;
+    char      locationCityOptions[8192] = {0};
+    const char locationLetterOptions[] = "All\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nL\nM\nN\nO\nP\nQ\nR\nS\nT\nU\nV\nW\nX\nY\nZ";
     int       locationLetterFilter = -1;
     int       pendingLocationIndex = 0;
     bool      locationOpen = false;
+    bool      locationSyncingRollers = false;
 
     int selectedField = FIELD_MINUTE;
     bool openFlag = false;
@@ -302,75 +306,146 @@ namespace
         lv_label_set_text(locationPickerCityLabel, text);
     }
 
-    void updateLocationRowStyles()
+    void styleLocationRoller(lv_obj_t *roller, lv_text_align_t align,
+                             lv_coord_t padLeft)
     {
-        for (int i = 0; i < Location::count() && i < 256; i++) {
-            if (!locationRow[i]) continue;
-            bool selected = (i == pendingLocationIndex);
-            lv_obj_set_style_bg_opa(locationRow[i], selected ? 255 : 0, 0);
-            lv_obj_set_style_bg_color(locationRow[i],
-                                      lv_color_hex(0x333333), 0);
-            lv_obj_set_style_text_color(
-                locationRow[i],
-                lv_color_hex(selected ? 0xFFFFFF : 0xCCCCCC), 0);
-        }
+        lv_obj_set_style_bg_opa(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_border_width(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_left(roller, padLeft, LV_PART_MAIN);
+        lv_obj_set_style_text_font(roller, &ui_font_Inter18, LV_PART_MAIN);
+        lv_obj_set_style_text_color(roller, lv_color_hex(0xAAAAAA),
+                                    LV_PART_MAIN);
+        lv_obj_set_style_text_align(roller, align, LV_PART_MAIN);
+        lv_obj_set_style_text_line_space(roller, 0, LV_PART_MAIN);
+
+        lv_obj_set_style_bg_color(roller, lv_color_hex(0x333333),
+                                  LV_PART_SELECTED);
+        lv_obj_set_style_bg_opa(roller, 255, LV_PART_SELECTED);
+        lv_obj_set_style_text_color(roller, lv_color_hex(0xFFFFFF),
+                                    LV_PART_SELECTED);
+        lv_obj_set_style_radius(roller, 6, LV_PART_SELECTED);
     }
 
-    void updateLocationFilterStyles()
+    void rebuildCityRollerOptions()
     {
-        for (int i = 0; i < 27; i++) {
-            if (!locationLetterButton[i]) continue;
-            bool selected = (i - 1 == locationLetterFilter);
-            lv_obj_set_style_bg_color(
-                locationLetterButton[i],
-                lv_color_hex(selected ? 0x444444 : 0x1A1A1A), 0);
-            lv_obj_set_style_border_color(
-                locationLetterButton[i],
-                lv_color_hex(selected ? 0x888888 : 0x555555), 0);
+        if (!locationCityRoller) return;
 
-            lv_obj_t *label = lv_obj_get_child(locationLetterButton[i], 0);
-            if (label) {
-                lv_obj_set_style_text_color(
-                    label, lv_color_hex(selected ? 0xFFFFFF : 0xAAAAAA), 0);
-            }
-        }
-    }
+        locationCityCount = 0;
+        locationCityOptions[0] = '\0';
 
-    void layoutLocationRows()
-    {
-        int visible = 0;
         for (int i = 0; i < Location::count() && i < 256; i++) {
-            if (!locationRow[i]) continue;
             if (locationMatchesFilter(i)) {
-                int col = visible % 2;
-                int row = visible / 2;
-                lv_obj_set_pos(locationRow[i], col * 304, row * 21);
-                lv_obj_set_size(locationRow[i], 300, 20);
-                lv_obj_clear_flag(locationRow[i], LV_OBJ_FLAG_HIDDEN);
-                visible++;
-            } else {
-                lv_obj_add_flag(locationRow[i], LV_OBJ_FLAG_HIDDEN);
+                locationCityIndices[locationCityCount++] = i;
             }
         }
-        updateLocationRowStyles();
+
+        if (locationCityCount == 0) {
+            snprintf(locationCityOptions, sizeof(locationCityOptions), "--");
+        } else {
+            /* The source table keeps the original six cities first.  Sort the
+             * filtered roller alphabetically so the selected city sits in its
+             * natural place instead of at the top of its letter group. */
+            for (int i = 1; i < locationCityCount; i++) {
+                int key = locationCityIndices[i];
+                int j = i - 1;
+                while (j >= 0 &&
+                       strcmp(Location::at(locationCityIndices[j]).name,
+                              Location::at(key).name) > 0) {
+                    locationCityIndices[j + 1] = locationCityIndices[j];
+                    j--;
+                }
+                locationCityIndices[j + 1] = key;
+            }
+
+            size_t used = 0;
+            locationCityOptions[0] = '\0';
+            for (int i = 0; i < locationCityCount; i++) {
+                int written = snprintf(
+                    locationCityOptions + used,
+                    sizeof(locationCityOptions) - used,
+                    "%s%s", i ? "\n" : "",
+                    Location::at(locationCityIndices[i]).name);
+                if (written < 0 ||
+                    (size_t)written >= sizeof(locationCityOptions) - used) {
+                    locationCityCount = i;
+                    break;
+                }
+                used += (size_t)written;
+            }
+        }
+        lv_roller_set_options(locationCityRoller, locationCityOptions,
+                              LV_ROLLER_MODE_NORMAL);
+    }
+
+    void syncCityRollerToPending()
+    {
+        if (!locationCityRoller) return;
+
+        int target = 0;
+        bool found = false;
+        for (int i = 0; i < locationCityCount; i++) {
+            if (locationCityIndices[i] == pendingLocationIndex) {
+                target = i;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found && locationCityCount > 0) {
+            pendingLocationIndex = locationCityIndices[0];
+            target = 0;
+        }
+
+        if (locationCityCount > 0) {
+            locationSyncingRollers = true;
+            lv_roller_set_selected(locationCityRoller, (uint16_t)target,
+                                   LV_ANIM_OFF);
+            locationSyncingRollers = false;
+        }
+
+        updateLocationPickerSummary(pendingLocationIndex);
     }
 
     void refreshLocationPicker()
     {
-        if (!locationList) return;
+        if (!locationLetterRoller || !locationCityRoller) return;
 
-        updateLocationPickerSummary(pendingLocationIndex);
-        updateLocationFilterStyles();
-        layoutLocationRows();
+        int letterIndex = locationLetterFilter + 1;
+        if (letterIndex < 0) letterIndex = 0;
+        if (letterIndex > 26) letterIndex = 26;
 
-        if (pendingLocationIndex >= 0 &&
-            pendingLocationIndex < Location::count() &&
-            locationMatchesFilter(pendingLocationIndex) &&
-            locationRow[pendingLocationIndex]) {
-            lv_obj_scroll_to_view(locationRow[pendingLocationIndex],
-                                  LV_ANIM_OFF);
-        } else {
-            lv_obj_scroll_to_y(locationList, 0, LV_ANIM_OFF);
+        locationSyncingRollers = true;
+        lv_roller_set_selected(locationLetterRoller, (uint16_t)letterIndex,
+                               LV_ANIM_OFF);
+        rebuildCityRollerOptions();
+        locationSyncingRollers = false;
+
+        syncCityRollerToPending();
+    }
+
+    void onLocationLetterChanged(lv_event_t *event)
+    {
+        if (locationSyncingRollers) return;
+
+        int selected = (int)lv_roller_get_selected(lv_event_get_target(event));
+        locationLetterFilter = selected - 1;
+
+        locationSyncingRollers = true;
+        rebuildCityRollerOptions();
+        locationSyncingRollers = false;
+
+        syncCityRollerToPending();
+    }
+
+    void onLocationCityChanged(lv_event_t *event)
+    {
+        if (locationSyncingRollers) return;
+
+        int selected = (int)lv_roller_get_selected(lv_event_get_target(event));
+        if (selected >= 0 && selected < locationCityCount) {
+            pendingLocationIndex = locationCityIndices[selected];
+            updateLocationPickerSummary(pendingLocationIndex);
         }
     }
 
@@ -381,7 +456,7 @@ namespace
         lv_label_set_text(locationCurrentLabel, Location::city());
         updateLocationOffset(Location::index());
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 6; i++) {
             if (!locationQuickButton[i]) continue;
             bool selected = (locationQuickIndex[i] == Location::index());
             lv_obj_set_style_bg_color(
@@ -682,7 +757,7 @@ namespace Settings
                                          &ui_font_Inter10M, 0x888888,
                                          LV_TEXT_ALIGN_RIGHT);
 
-        locationCurrentLabel = make_label(locationPanel, 8, 20, 160, 20, "",
+        locationCurrentLabel = make_label(locationPanel, 8, 20, 160, 18, "",
                                           &ui_font_Inter15SB, 0xFFFFFF,
                                           LV_TEXT_ALIGN_LEFT);
         lv_obj_add_flag(locationCurrentLabel, LV_OBJ_FLAG_CLICKABLE);
@@ -691,8 +766,8 @@ namespace Settings
         }, LV_EVENT_CLICKED, NULL);
 
         const int quickX[2] = {8, 92};
-        const int quickY[3] = {46, 70, 94};
-        for (int i = 0; i < 5; i++) {
+        const int quickY[3] = {40, 61, 82};
+        for (int i = 0; i < 6; i++) {
             const int index = i;
             locationQuickIndex[i] = index;
             locationQuickButton[i] = make_button(
@@ -703,7 +778,7 @@ namespace Settings
                         (int)(intptr_t)lv_event_get_user_data(event));
                 }, (void *)(intptr_t)index);
         }
-        make_button(locationPanel, quickX[1], quickY[2], 78, 20,
+        make_button(locationPanel, 8, 104, 160, 22,
                     "All cities", &ui_font_Inter11R,
                     [](lv_event_t *) { Settings::showLocationPicker(); }, NULL);
 
@@ -713,17 +788,17 @@ namespace Settings
         lv_obj_set_style_bg_color(locationScreen, lv_color_hex(0x000000), 0);
         lv_obj_set_style_bg_opa(locationScreen, 255, 0);
 
-        make_label(locationScreen, 12, 5, 100, 22, "LOCATION",
+        make_label(locationScreen, 12, 4, 100, 24, "LOCATION",
                    &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        locationPickerCityLabel = make_label(locationScreen, 120, 6, 340, 20,
+        locationPickerCityLabel = make_label(locationScreen, 120, 5, 330, 22,
                                               "", &ui_font_Inter15M,
                                               0xCCCCCC, LV_TEXT_ALIGN_LEFT);
 
-        make_button(locationScreen, 472, 4, 72, 24, "Cancel",
+        make_button(locationScreen, 460, 2, 76, 28, "Cancel",
                     &ui_font_Inter11R, [](lv_event_t *) {
                         Settings::hideLocationPicker();
                     }, NULL);
-        make_button(locationScreen, 552, 4, 72, 24, "Apply",
+        make_button(locationScreen, 544, 2, 76, 28, "Apply",
                     &ui_font_Inter11R, [](lv_event_t *) {
                         Settings::selectLocation(pendingLocationIndex);
                         Settings::hideLocationPicker();
@@ -731,73 +806,45 @@ namespace Settings
 
         lv_obj_t *locationHeaderLine = lv_obj_create(locationScreen);
         lv_obj_remove_style_all(locationHeaderLine);
-        lv_obj_set_pos(locationHeaderLine, 12, 32);
+        lv_obj_set_pos(locationHeaderLine, 12, 34);
         lv_obj_set_size(locationHeaderLine, 616, 1);
         lv_obj_set_style_bg_color(locationHeaderLine, lv_color_hex(0x444444), 0);
         lv_obj_set_style_bg_opa(locationHeaderLine, 255, 0);
         lv_obj_clear_flag(locationHeaderLine,
                           LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 
-        const char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        for (int f = 0; f < 27; f++) {
-            int col = (f < 14) ? f : (f - 14);
-            int row = (f < 14) ? 0 : 1;
-            int x = 12 + col * 44 + (row ? 22 : 0);
-            int y = 36 + row * 21;
-            char text[8] = {0};
-            if (f == 0) {
-                strcpy(text, "All");
-            } else {
-                text[0] = letters[f - 1];
-            }
-            locationLetterButton[f] = make_button(
-                locationScreen, x, y, 42, 18, text, &ui_font_Inter10M,
-                [](lv_event_t *event) {
-                    int code = (int)(intptr_t)lv_event_get_user_data(event);
-                    locationLetterFilter = code - 1;
-                    refreshLocationPicker();
-                }, (void *)(intptr_t)f);
-        }
+        make_label(locationScreen, 12, 36, 100, 10, "A-Z",
+                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
+        make_label(locationScreen, 124, 36, 200, 10, "CITIES",
+                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
 
-        locationList = lv_obj_create(locationScreen);
-        lv_obj_remove_style_all(locationList);
-        lv_obj_set_pos(locationList, 12, 78);
-        lv_obj_set_size(locationList, 616, 90);
-        lv_obj_add_flag(locationList, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_scroll_dir(locationList, LV_DIR_VER);
-        lv_obj_set_scrollbar_mode(locationList, LV_SCROLLBAR_MODE_AUTO);
-        lv_obj_set_style_bg_opa(locationList, 0, 0);
-        lv_obj_set_style_pad_all(locationList, 0, 0);
-        lv_obj_set_style_width(locationList, 6, LV_PART_SCROLLBAR);
-        lv_obj_set_style_bg_color(locationList, lv_color_hex(0x555555),
-                                  LV_PART_SCROLLBAR);
-        lv_obj_set_style_bg_opa(locationList, 255, LV_PART_SCROLLBAR);
-        lv_obj_set_style_radius(locationList, 3, LV_PART_SCROLLBAR);
+        lv_obj_t *locationDivider = lv_obj_create(locationScreen);
+        lv_obj_remove_style_all(locationDivider);
+        lv_obj_set_pos(locationDivider, 116, 48);
+        lv_obj_set_size(locationDivider, 1, 108);
+        lv_obj_set_style_bg_color(locationDivider, lv_color_hex(0x333333), 0);
+        lv_obj_set_style_bg_opa(locationDivider, 255, 0);
+        lv_obj_clear_flag(locationDivider,
+                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 
-        for (int i = 0; i < Location::count() && i < 256; i++) {
-            lv_obj_t *row = lv_label_create(locationList);
-            lv_obj_set_pos(row, 0, 0);
-            lv_obj_set_size(row, 300, 20);
-            lv_label_set_long_mode(row, LV_LABEL_LONG_CLIP);
-            lv_label_set_text(row, Location::at(i).name);
-            lv_obj_set_style_pad_left(row, 8, 0);
-            lv_obj_set_style_pad_top(row, 2, 0);
-            lv_obj_set_style_bg_opa(row, 0, 0);
-            lv_obj_set_style_bg_color(row, lv_color_hex(0x333333), 0);
-            lv_obj_set_style_radius(row, 4, 0);
-            lv_obj_set_style_text_font(row, &ui_font_Inter15R, 0);
-            lv_obj_set_style_text_color(row, lv_color_hex(0xCCCCCC), 0);
-            lv_obj_set_style_text_align(row, LV_TEXT_ALIGN_LEFT, 0);
-            lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-            lv_obj_add_event_cb(row, [](lv_event_t *event) {
-                pendingLocationIndex =
-                    (int)(intptr_t)lv_event_get_user_data(event);
-                updateLocationPickerSummary(pendingLocationIndex);
-                updateLocationRowStyles();
-            }, LV_EVENT_CLICKED, (void *)(intptr_t)i);
-            locationRow[i] = row;
-        }
+        locationLetterRoller = lv_roller_create(locationScreen);
+        styleLocationRoller(locationLetterRoller, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_pos(locationLetterRoller, 12, 48);
+        lv_obj_set_width(locationLetterRoller, 100);
+        lv_roller_set_options(locationLetterRoller, locationLetterOptions,
+                              LV_ROLLER_MODE_NORMAL);
+        lv_roller_set_visible_row_count(locationLetterRoller, 6);
+        lv_obj_add_event_cb(locationLetterRoller, onLocationLetterChanged,
+                            LV_EVENT_VALUE_CHANGED, NULL);
+
+        locationCityRoller = lv_roller_create(locationScreen);
+        styleLocationRoller(locationCityRoller, LV_TEXT_ALIGN_LEFT, 14);
+        lv_obj_set_pos(locationCityRoller, 124, 48);
+        lv_obj_set_width(locationCityRoller, 504);
+        lv_roller_set_options(locationCityRoller, "", LV_ROLLER_MODE_NORMAL);
+        lv_roller_set_visible_row_count(locationCityRoller, 6);
+        lv_obj_add_event_cb(locationCityRoller, onLocationCityChanged,
+                            LV_EVENT_VALUE_CHANGED, NULL);
 
         /* Tap the location pill as a discoverable alternative to swiping. */
         lv_obj_add_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE);

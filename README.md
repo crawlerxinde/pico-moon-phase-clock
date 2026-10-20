@@ -146,12 +146,14 @@ The Settings page contains:
 * **Date & time**: tap a field (year, month, day, hour, minute or second),
   then use `-` / `+` to adjust it.  Every change is written to the RTC
   immediately.  Invalid dates such as 31 February are rejected.
-* **Location**: the card shows the current city, a 5-city quick grid and an
-  `All cities` button.  Tapping a quick city applies it immediately; `All
+* **Location**: the card shows the current city, a 6-city quick grid and a
+  full-width `All cities` button.  Tapping a quick city applies it immediately; `All
   cities` opens a full-screen picker with an A-Z filter, two-column list and
-  explicit `Cancel` / `Apply` actions.  The picker defaults to the current
-  city's first letter, and tapping a row only highlights it until Apply is
-  pressed.  The selection is stored in EEPROM.  Each city has its own
+  explicit `Cancel` / `Apply` actions.  The picker uses two default LVGL
+  rollers: the left roller selects `All` or a letter A-Z, and the right roller
+  immediately shows only cities for that letter.  It defaults to the current
+  city's first letter, and the right roller highlights the pending city until
+  Apply is pressed.  The selection is stored in EEPROM.  Each city has its own
   coordinates and timezone/DST rule (EU, US, Australia, New Zealand and Chile
   rules are supported).  Changing city preserves the absolute UTC instant,
   rewrites the RTC in the new local time, updates the location pill and
