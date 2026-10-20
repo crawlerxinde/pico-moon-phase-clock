@@ -398,11 +398,22 @@ namespace
 
     void loadPage(lv_obj_t *screen, lv_scr_load_anim_t anim)
     {
-        lv_scr_load_anim(screen, anim, 150, 0, false);
+        (void)anim;
+
+        /* Settings navigation must never overlap.  Repeated animated screen
+         * loads can leave LVGL's active screen out of sync with the visible
+         * one, which makes the overview Back card stop receiving taps after
+         * several Next/Back cycles.  Load pages immediately instead. */
+        if (screen && lv_scr_act() != screen) {
+            lv_scr_load(screen);
+        }
     }
 
     void showOverview()
     {
+        /* The overview is part of Settings; make the close action valid even
+         * if a previous transition left the flag stale. */
+        openFlag = true;
         currentPage = PAGE_OVERVIEW;
         refreshOverview();
         loadPage(overviewScreen, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
@@ -1297,23 +1308,18 @@ namespace Settings
         openFlag = true;
         currentPage = PAGE_OVERVIEW;
         refreshOverview();
-        lv_scr_load_anim(overviewScreen,
-                         swipeDx < 0 ? LV_SCR_LOAD_ANIM_MOVE_LEFT :
-                         swipeDx > 0 ? LV_SCR_LOAD_ANIM_MOVE_RIGHT :
-                         LV_SCR_LOAD_ANIM_MOVE_LEFT,
-                         150, 0, false);
+        loadPage(overviewScreen,
+                 swipeDx < 0 ? LV_SCR_LOAD_ANIM_MOVE_LEFT :
+                 swipeDx > 0 ? LV_SCR_LOAD_ANIM_MOVE_RIGHT :
+                 LV_SCR_LOAD_ANIM_MOVE_LEFT);
     }
 
     void hide(int swipeDx)
     {
-        if (!openFlag) return;
+        (void)swipeDx;
         openFlag = false;
         currentPage = PAGE_OVERVIEW;
-        lv_scr_load_anim(ui_Screen1,
-                         swipeDx < 0 ? LV_SCR_LOAD_ANIM_MOVE_LEFT :
-                         swipeDx > 0 ? LV_SCR_LOAD_ANIM_MOVE_RIGHT :
-                         LV_SCR_LOAD_ANIM_MOVE_RIGHT,
-                         150, 0, false);
+        loadPage(ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
         MoonIntro::play();
     }
 
