@@ -290,7 +290,7 @@ namespace
         Serial.println("  G                       open/close Settings page");
         Serial.println("  W                       open/close the city picker (Settings only)");
         Serial.println("  J                       open/close the date/time picker (Settings only)");
-        Serial.println("  Z N                     debug Settings page 0..8 (Settings only)");
+        Serial.println("  Z N                     debug Settings page 0..9 (Settings only)");
         Serial.println("  L                       list locations; L 0..5 select");
         Serial.println("  K FIELD DELTA           adjust date/time field (0=year..5=sec)");
         Serial.println("  U UNIX_EPOCH            set RTC from UTC (uses current city)");

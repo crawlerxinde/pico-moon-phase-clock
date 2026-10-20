@@ -40,6 +40,7 @@ calendar.c
 fonts/ui_font_Inter66.c
 fonts/ui_font_Inter42.c
 fonts/ui_font_Inter28.c
+fonts/ui_font_FA28.c
 fonts/ui_font_FA14.c
 fonts/ui_font_Inter18.c
 fonts/ui_font_Inter15M.c
