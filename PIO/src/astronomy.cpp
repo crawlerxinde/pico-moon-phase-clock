@@ -45,13 +45,16 @@ namespace
     constexpr float  MOON_SCREEN_UP_OFFSET_DEG   = 0.0f;
     constexpr float  MOON_ROTATION_SIGN          = 1.0f;
 
-    /* Optional per-frame correction for the static assets.  Keep this table
-     * zero unless a known moon/Stellarium comparison shows that a particular
-     * frame's baked terminator is not aligned with lunar north. */
+    /* Baked terminator angle of each static frame, in image coordinates.
+     * The angle is measured from image-up toward image-right (bottom-right
+     * positive).  The assets are not all lunar-north-up: their terminator
+     * chords tilt by different amounts, so this table removes that baked
+     * roll before the astronomical terminator orientation is applied. */
     constexpr float kMoonFrameCorrectionDeg[30] = {
-        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+         0.0f,   0.0f, -20.0f, -18.5f, -15.0f, -13.0f,  -6.5f,  -0.5f,
+         7.0f,  11.5f,  19.0f,  21.0f,  22.5f,  10.5f,   0.0f,   0.0f,
+         0.0f,  23.5f,  20.5f,  16.5f,  11.0f,   5.0f,  -1.5f,  -8.5f,
+       -15.5f, -21.0f, -23.5f, -28.0f, -30.0f,   0.0f
     };
 
     unsigned long lastUpdateMs = 0;
@@ -197,6 +200,7 @@ namespace
     {
         double northPole;
         double zenith;
+        double sun;
     };
 
     MoonAngles moonAngles()
@@ -225,7 +229,18 @@ namespace
             tan(Location::latitude() * DEG2RAD) * cos(decM * DEG2RAD) -
             sin(decM * DEG2RAD) * cos(H * DEG2RAD)) * RAD2DEG;
 
-        return {P, q};
+        /* Position angle of the Sun as seen from the Moon, measured from
+         * celestial north toward east.  This is the normal to the terminator;
+         * the terminator line itself is therefore chi - q + 90 degrees. */
+        double raS, decS;
+        sunPosition(jd, raS, decS);
+        const double chi = atan2(
+            cos(decS * DEG2RAD) * sin((raS - raM) * DEG2RAD),
+            sin(decS * DEG2RAD) * cos(decM * DEG2RAD) -
+            cos(decS * DEG2RAD) * sin(decM * DEG2RAD) *
+                cos((raS - raM) * DEG2RAD)) * RAD2DEG;
+
+        return {P, q, chi};
     }
 
     int moonFrame()
@@ -245,15 +260,20 @@ namespace
         if (!ui_Screen1_Image_Moon) return;
 
         const MoonAngles angles = moonAngles();
-        const float target = (float)(angles.northPole - angles.zenith);
+        const float terminator =
+            (float)(angles.sun - angles.zenith + 90.0);
         const float correction = (frame >= 0 && frame < 30)
                                      ? kMoonFrameCorrectionDeg[frame]
                                      : 0.0f;
 
-        float rotation = target
+        /* LVGL's positive angle is clockwise.  The per-frame table is the
+         * asset's baked terminator angle measured clockwise from image-up,
+         * so the rotation needed to put it at the astronomical position
+         * angle is asset - terminator.  The earlier terminator + asset form
+         * mirrored the tilt. */
+        float rotation = correction - terminator
                        - MOON_ASSET_NORTH_OFFSET_DEG
-                       - MOON_SCREEN_UP_OFFSET_DEG
-                       + correction;
+                       - MOON_SCREEN_UP_OFFSET_DEG;
         rotation *= MOON_ROTATION_SIGN;
 
         while (rotation > 180.0f) rotation -= 360.0f;
@@ -430,7 +450,10 @@ namespace Astronomy
     float moonScreenAngleDeg()
     {
         const MoonAngles angles = moonAngles();
-        return (float)(angles.northPole - angles.zenith);
+        float angle = (float)(angles.sun - angles.zenith + 90.0);
+        while (angle > 180.0f) angle -= 360.0f;
+        while (angle < -180.0f) angle += 360.0f;
+        return angle;
     }
 
     void updateOrientation()
@@ -450,30 +473,33 @@ namespace Astronomy
     void printOrientation()
     {
         const MoonAngles angles = moonAngles();
-        const float target = (float)(angles.northPole - angles.zenith);
+        const float terminator =
+            (float)(angles.sun - angles.zenith + 90.0);
         const int frame = moonFrame();
         const float correction = kMoonFrameCorrectionDeg[frame];
-        float applied = target
+        float applied = correction - terminator
                       - MOON_ASSET_NORTH_OFFSET_DEG
-                      - MOON_SCREEN_UP_OFFSET_DEG
-                      + correction;
+                      - MOON_SCREEN_UP_OFFSET_DEG;
         applied *= MOON_ROTATION_SIGN;
+        while (applied > 180.0f) applied -= 360.0f;
+        while (applied < -180.0f) applied += 360.0f;
 
-        long pWhole, pFrac, qWhole, qFrac, tWhole, tFrac;
-        long oWhole, oFrac, cWhole, cFrac, aWhole, aFrac;
+        long pWhole, pFrac, qWhole, qFrac, chiWhole, chiFrac;
+        long tWhole, tFrac, oWhole, oFrac, cWhole, cFrac, aWhole, aFrac;
         splitHundredths(angles.northPole, pWhole, pFrac);
         splitHundredths(angles.zenith, qWhole, qFrac);
-        splitHundredths(target, tWhole, tFrac);
+        splitHundredths(angles.sun, chiWhole, chiFrac);
+        splitHundredths(terminator, tWhole, tFrac);
         splitHundredths(MOON_ASSET_NORTH_OFFSET_DEG +
                         MOON_SCREEN_UP_OFFSET_DEG, oWhole, oFrac);
         splitHundredths(correction, cWhole, cFrac);
         splitHundredths(applied, aWhole, aFrac);
 
         Serial.printf("MOON frame=%d P=%ld.%02ld q=%ld.%02ld "
-                      "screen=%ld.%02ld offset=%ld.%02ld "
+                      "chi=%ld.%02ld term=%ld.%02ld offset=%ld.%02ld "
                       "corr=%ld.%02ld applied=%ld.%02ld sign=%d\n",
                       frame, pWhole, pFrac, qWhole, qFrac,
-                      tWhole, tFrac, oWhole, oFrac,
+                      chiWhole, chiFrac, tWhole, tFrac, oWhole, oFrac,
                       cWhole, cFrac, aWhole, aFrac,
                       MOON_ROTATION_SIGN < 0.0f ? -1 : 1);
     }

@@ -326,13 +326,20 @@ local time with `--time`.
   remaining width.  The Clock page follows the v1.1 layout: larger time block,
   compact 2x2 astronomy rows with reserved room for `+1`, and a full calendar
   that supports six-row months.
-* **Moon orientation**: the 30 static moon frames are treated as lunar-north-up.
-  The image is rotated by `P - q`, where `P` is the position angle of the lunar
-  north pole and `q` is the local parallactic angle.  This makes the terminator
-  tilt depend on both the selected city and the current time.  The calibration
-  constants live in `PIO/src/astronomy.cpp`; the `O` serial command prints the
-  intermediate P/q values.  If the artwork is not exactly north-up, adjust
-  `MOON_ASSET_NORTH_OFFSET_DEG` or the per-frame correction table.
+* **Moon orientation**: the terminator line is oriented from the Sun's position
+  angle at the Moon (`chi`), the local parallactic angle (`q`) and a per-frame
+  correction for the baked artwork:
+  ```text
+  terminator = chi - q + 90 degrees
+  screen rotation = kMoonFrameCorrectionDeg[frame] - terminator
+  ```
+  The 30 static frames are not all exactly lunar-north-up, so
+  `kMoonFrameCorrectionDeg` stores each frame's measured terminator chord
+  angle.  This preserves the lunar surface orientation while making the
+  illuminated limb follow the real Sun direction for the selected city and
+  time.  The calibration constants live in `PIO/src/astronomy.cpp`; the `O`
+  serial command prints `P`, `q`, `chi`, the terminator angle, the frame
+  correction and the applied screen angle.
 * **Power**: `SYS_EN` is asserted at the very start of `setup()` so the board
   stays on when running from the 18650 battery.  A short press of the power
   button toggles the backlight; holding it for ~1.5 s powers the board off.

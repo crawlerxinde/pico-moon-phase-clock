@@ -297,7 +297,7 @@ namespace
         Serial.println("  A                       print battery voltage/percentage");
         Serial.println("  Q                       print ES8311 codec ID");
         Serial.println("  M                       measure audio MCLK/BCLK/LRCLK");
-        Serial.println("  O                       print moon orientation P/q/angle");
+        Serial.println("  O                       print moon P/q/chi/terminator angles");
         Serial.println("  P                       sample touch for 30 s (diagnostic)");
         Serial.println("  V                       print display debug info");
         Serial.println("  D / E                   portrait / landscape panel fill test");
