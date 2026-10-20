@@ -309,6 +309,22 @@ namespace
         return false;
     }
 
+    void setEventLabel(lv_obj_t *label, const char *eventText,
+                       const char *arrow)
+    {
+        if (strcmp(eventText, "--") == 0) {
+            lv_label_set_text(label, "--");
+            return;
+        }
+
+        /* Keep a fixed-width slot for the optional +1/+2 marker so all four
+         * astronomy arrows line up even when no day offset is shown. */
+        char buf[24];
+        snprintf(buf, sizeof(buf), "%s%s %s", eventText,
+                 strchr(eventText, '+') ? "" : "  ", arrow);
+        lv_label_set_text(label, buf);
+    }
+
     int localDayOffset(time_t utcEvent, time_t localOffset,
                        const Clock::DateTime &today)
     {
@@ -401,15 +417,10 @@ namespace Astronomy
                        (const void *)ui_imgset_moon_[currentFrame]);
         applyMoonOrientation(currentFrame);
 
-        char eventBuf[24];
-        snprintf(eventBuf, sizeof(eventBuf), "%s ↑", sunriseText);
-        lv_label_set_text(ui_Screen1_Label_sunrise, eventBuf);
-        snprintf(eventBuf, sizeof(eventBuf), "%s ↓", sunsetText);
-        lv_label_set_text(ui_Screen1_Label_sunset, eventBuf);
-        snprintf(eventBuf, sizeof(eventBuf), "%s ↑", moonriseText);
-        lv_label_set_text(ui_Screen1_Label_moonrise, eventBuf);
-        snprintf(eventBuf, sizeof(eventBuf), "%s ↓", moonsetText);
-        lv_label_set_text(ui_Screen1_Label_moonset, eventBuf);
+        setEventLabel(ui_Screen1_Label_sunrise, sunriseText, "↑");
+        setEventLabel(ui_Screen1_Label_sunset, sunsetText, "↓");
+        setEventLabel(ui_Screen1_Label_moonrise, moonriseText, "↑");
+        setEventLabel(ui_Screen1_Label_moonset, moonsetText, "↓");
 
         lv_obj_clear_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN);
 

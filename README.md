@@ -76,7 +76,7 @@ reference and are excluded from the build.
 
 ![Moon Phase Clock](Assets/Moon%20Phase%20Clock.GIF)
 
-At boot the left 170x170 tile cycles through the 28 moon-phase frames over
+At boot the left 130x130 tile cycles through the 28 moon-phase frames over
 three seconds, matching the original T-Display-S3 animation.  The boot screen
 stays visible for one full cycle before switching to the clock.
 
@@ -103,7 +103,7 @@ intentionally boot-only.
 The 640x172 panel uses a three-column layout based on the minimal black
 dashboard mock:
 
-* left: 170x170 moon phase image,
+* left: about 120x120 moon phase image, inset from the screen edge,
 * centre: Inter Light 66 px time, Inter Medium AM/PM, Inter Regular seconds/date,
   and a rounded location pill with a map-pin icon,
 * right: Inter month calendar with today outlined, then IBM Plex Mono moonrise/
@@ -322,8 +322,10 @@ local time with `--time`.
   big-endian pixels while the SquareLine assets use `LV_COLOR_16_SWAP = 0`.
 * **Touch**: polled I2C reads; no interrupt is required for the clock UI.
 * **UI**: the original 320x170 layout was re-arranged for 640x172.  The moon
-  image remains 170x170 on the left; time, date, phase and rise/set times use
-  the remaining width.
+  image is about 120x120 on the left; time, date, phase and rise/set times use the
+  remaining width.  The Clock page follows the v1.1 layout: larger time block,
+  compact 2x2 astronomy rows with reserved room for `+1`, and a full calendar
+  that supports six-row months.
 * **Moon orientation**: the 30 static moon frames are treated as lunar-north-up.
   The image is rotated by `P - q`, where `P` is the position angle of the lunar
   north pole and `q` is the local parallactic angle.  This makes the terminator

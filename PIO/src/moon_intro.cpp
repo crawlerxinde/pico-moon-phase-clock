@@ -48,11 +48,11 @@ namespace MoonIntro
         lv_anim_del(moon, NULL);
 
         /* The screen slide takes ~180 ms; let the moon arrive with it.
-         * Start small/offset left, then settle into the normal 170 px tile. */
+         * Start small/offset left, then settle into the 130 px tile at content x=12. */
         lv_obj_set_style_img_opa(moon, 0, 0);
-        lv_obj_set_x(moon, -36);
+        lv_obj_set_x(moon, -40);
         animate(moon, set_opa, 0, 255, INTRO_DELAY_MS);
-        animate(moon, set_zoom, 130, 236, INTRO_DELAY_MS);
-        animate(moon, set_x, -36, 0, INTRO_DELAY_MS);
+        animate(moon, set_zoom, 110, 196, INTRO_DELAY_MS);
+        animate(moon, set_x, -40, -8, INTRO_DELAY_MS);
     }
 }
