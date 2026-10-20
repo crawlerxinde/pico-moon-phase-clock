@@ -220,7 +220,7 @@ ui_Screen1_Image_bootscreeni = lv_img_create(ui_Screen1);
 lv_obj_set_width( ui_Screen1_Image_bootscreeni, 170);
 lv_obj_set_height( ui_Screen1_Image_bootscreeni, 170);
 lv_obj_set_x( ui_Screen1_Image_bootscreeni, -8 );
-lv_img_set_zoom(ui_Screen1_Image_bootscreeni, 196);
+lv_img_set_zoom(ui_Screen1_Image_bootscreeni, 236);
 lv_obj_set_y( ui_Screen1_Image_bootscreeni, 1 );
 lv_obj_add_flag( ui_Screen1_Image_bootscreeni, LV_OBJ_FLAG_ADV_HITTEST );   /// Flags
 lv_obj_clear_flag( ui_Screen1_Image_bootscreeni, LV_OBJ_FLAG_SCROLLABLE );    /// Flags
@@ -229,7 +229,7 @@ ui_Screen1_Image_Moon = lv_img_create(ui_Screen1);
 lv_obj_set_width( ui_Screen1_Image_Moon, 170);
 lv_obj_set_height( ui_Screen1_Image_Moon, 170);
 lv_obj_set_x( ui_Screen1_Image_Moon, -8 );
-lv_img_set_zoom(ui_Screen1_Image_Moon, 196);
+lv_img_set_zoom(ui_Screen1_Image_Moon, 236);
 lv_obj_set_y( ui_Screen1_Image_Moon, 1 );
 lv_obj_add_flag( ui_Screen1_Image_Moon, LV_OBJ_FLAG_ADV_HITTEST );   /// Flags
 lv_obj_clear_flag( ui_Screen1_Image_Moon, LV_OBJ_FLAG_SCROLLABLE );    /// Flags
