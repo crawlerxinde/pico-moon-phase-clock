@@ -790,19 +790,9 @@ namespace Settings
 
         make_label(locationScreen, 12, 4, 100, 24, "LOCATION",
                    &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        locationPickerCityLabel = make_label(locationScreen, 120, 5, 330, 22,
+        locationPickerCityLabel = make_label(locationScreen, 120, 5, 500, 22,
                                               "", &ui_font_Inter15M,
                                               0xCCCCCC, LV_TEXT_ALIGN_LEFT);
-
-        make_button(locationScreen, 460, 2, 76, 28, "Cancel",
-                    &ui_font_Inter11R, [](lv_event_t *) {
-                        Settings::hideLocationPicker();
-                    }, NULL);
-        make_button(locationScreen, 544, 2, 76, 28, "Apply",
-                    &ui_font_Inter11R, [](lv_event_t *) {
-                        Settings::selectLocation(pendingLocationIndex);
-                        Settings::hideLocationPicker();
-                    }, NULL);
 
         lv_obj_t *locationHeaderLine = lv_obj_create(locationScreen);
         lv_obj_remove_style_all(locationHeaderLine);
@@ -813,24 +803,36 @@ namespace Settings
         lv_obj_clear_flag(locationHeaderLine,
                           LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 
-        make_label(locationScreen, 12, 36, 100, 10, "A-Z",
+        make_label(locationScreen, 12, 36, 96, 10, "A-Z",
                    &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
-        make_label(locationScreen, 124, 36, 200, 10, "CITIES",
+        make_label(locationScreen, 120, 36, 200, 10, "CITIES",
+                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
+        make_label(locationScreen, 542, 36, 86, 10, "ACTION",
                    &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
 
         lv_obj_t *locationDivider = lv_obj_create(locationScreen);
         lv_obj_remove_style_all(locationDivider);
-        lv_obj_set_pos(locationDivider, 116, 48);
+        lv_obj_set_pos(locationDivider, 112, 48);
         lv_obj_set_size(locationDivider, 1, 108);
         lv_obj_set_style_bg_color(locationDivider, lv_color_hex(0x333333), 0);
         lv_obj_set_style_bg_opa(locationDivider, 255, 0);
         lv_obj_clear_flag(locationDivider,
                           LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
 
+        lv_obj_t *locationActionDivider = lv_obj_create(locationScreen);
+        lv_obj_remove_style_all(locationActionDivider);
+        lv_obj_set_pos(locationActionDivider, 530, 48);
+        lv_obj_set_size(locationActionDivider, 1, 108);
+        lv_obj_set_style_bg_color(locationActionDivider,
+                                  lv_color_hex(0x333333), 0);
+        lv_obj_set_style_bg_opa(locationActionDivider, 255, 0);
+        lv_obj_clear_flag(locationActionDivider,
+                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
         locationLetterRoller = lv_roller_create(locationScreen);
         styleLocationRoller(locationLetterRoller, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_pos(locationLetterRoller, 12, 48);
-        lv_obj_set_width(locationLetterRoller, 100);
+        lv_obj_set_width(locationLetterRoller, 96);
         lv_roller_set_options(locationLetterRoller, locationLetterOptions,
                               LV_ROLLER_MODE_NORMAL);
         lv_roller_set_visible_row_count(locationLetterRoller, 6);
@@ -839,12 +841,22 @@ namespace Settings
 
         locationCityRoller = lv_roller_create(locationScreen);
         styleLocationRoller(locationCityRoller, LV_TEXT_ALIGN_LEFT, 14);
-        lv_obj_set_pos(locationCityRoller, 124, 48);
-        lv_obj_set_width(locationCityRoller, 504);
+        lv_obj_set_pos(locationCityRoller, 120, 48);
+        lv_obj_set_width(locationCityRoller, 406);
         lv_roller_set_options(locationCityRoller, "", LV_ROLLER_MODE_NORMAL);
         lv_roller_set_visible_row_count(locationCityRoller, 6);
         lv_obj_add_event_cb(locationCityRoller, onLocationCityChanged,
                             LV_EVENT_VALUE_CHANGED, NULL);
+
+        make_button(locationScreen, 542, 66, 86, 32, "Cancel",
+                    &ui_font_Inter11R, [](lv_event_t *) {
+                        Settings::hideLocationPicker();
+                    }, NULL);
+        make_button(locationScreen, 542, 106, 86, 32, "Apply",
+                    &ui_font_Inter11R, [](lv_event_t *) {
+                        Settings::selectLocation(pendingLocationIndex);
+                        Settings::hideLocationPicker();
+                    }, NULL);
 
         /* Tap the location pill as a discoverable alternative to swiping. */
         lv_obj_add_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE);
