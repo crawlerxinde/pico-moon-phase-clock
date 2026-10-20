@@ -171,7 +171,8 @@ namespace
         /* The city picker is a modal screen with its own Cancel/Apply
          * actions; do not let the page-swipe gesture close Settings behind
          * it. */
-        if (Settings::isLocationPickerOpen()) {
+        if (Settings::isLocationPickerOpen() ||
+            Settings::isDateTimePickerOpen()) {
             if (Display::TouchDown) {
                 swipeTouchActive = false;
                 swipeFired = true;
@@ -288,6 +289,8 @@ namespace
         Serial.println("  C                       capture screenshot (RGB565 over USB)");
         Serial.println("  G                       open/close Settings page");
         Serial.println("  W                       open/close the city picker (Settings only)");
+        Serial.println("  J                       open/close the date/time picker (Settings only)");
+        Serial.println("  Z N                     debug Settings page 0..8 (Settings only)");
         Serial.println("  L                       list locations; L 0..5 select");
         Serial.println("  K FIELD DELTA           adjust date/time field (0=year..5=sec)");
         Serial.println("  U UNIX_EPOCH            set RTC from UTC (uses current city)");
@@ -367,6 +370,25 @@ namespace
                         } else {
                             Settings::showLocationPicker();
                             Serial.println("City picker: open");
+                        }
+                    } else if (*line == 'J' || *line == 'j') {
+                        if (!Settings::isOpen()) {
+                            Serial.println("Open Settings first (G)");
+                        } else if (Settings::isDateTimePickerOpen()) {
+                            Settings::hideDateTimePicker(false);
+                            Serial.println("Date/time picker: closed");
+                        } else {
+                            Settings::showDateTimePicker();
+                            Serial.println("Date/time picker: open");
+                        }
+                    } else if (*line == 'Z' || *line == 'z') {
+                        if (!Settings::isOpen()) {
+                            Serial.println("Open Settings first (G)");
+                        } else {
+                            int page = 0;
+                            sscanf(line + 1, "%d", &page);
+                            Settings::debugOpen(page);
+                            Serial.printf("Settings debug page: %d\n", page);
                         }
                     } else if (*line == 'L' || *line == 'l') {
                         int index = -1;

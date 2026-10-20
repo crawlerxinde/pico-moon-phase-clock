@@ -8,6 +8,7 @@
 #include "astronomy.h"
 #include "clock.h"
 #include "location.h"
+#include "settings.h"
 
 namespace
 {
@@ -118,6 +119,8 @@ namespace SettingsStore
 
     void update()
     {
+        if (Settings::isPreviewActive()) return;
+
         Clock::DateTime now = Clock::now();
 
         if (configChanged()) {

@@ -10,7 +10,6 @@
 
 #include "astronomy.h"
 #include "audio_tick.h"
-#include "display.h"
 #include "battery.h"
 #include "brightness.h"
 #include "clock.h"
@@ -20,55 +19,153 @@
 
 namespace
 {
-    enum Field
+    enum Page
     {
-        FIELD_YEAR = 0,
-        FIELD_MONTH,
-        FIELD_DAY,
-        FIELD_HOUR,
-        FIELD_MINUTE,
-        FIELD_SECOND,
-        FIELD_COUNT
+        PAGE_OVERVIEW,
+        PAGE_CHOICE,
+        PAGE_EDITOR,
+        PAGE_REVIEW,
+        PAGE_LOCATION,
+        PAGE_TICK,
+        PAGE_DISCARD
     };
 
-    lv_obj_t *settingsScreen = nullptr;
-    lv_obj_t *fieldButton[FIELD_COUNT] = {nullptr};
-    lv_obj_t *fieldLabel[FIELD_COUNT] = {nullptr};
+    enum ChoiceMode
+    {
+        CHOICE_DATETIME,
+        CHOICE_DISPLAY
+    };
 
-    lv_obj_t *batteryDigits = nullptr;
-    lv_obj_t *batteryUnit = nullptr;
-    lv_obj_t *batteryVolt = nullptr;
-    lv_obj_t *batteryStatus = nullptr;
-    lv_obj_t *batteryLevel = nullptr;
+    enum EditorMode
+    {
+        EDIT_TIME,
+        EDIT_DATE,
+        EDIT_BRIGHTNESS
+    };
 
-    lv_obj_t *brightnessSlider = nullptr;
-    lv_obj_t *brightnessValueLabel = nullptr;
-    lv_obj_t *tickSwitch = nullptr;
+    enum ReviewMode
+    {
+        REVIEW_TIME,
+        REVIEW_DATE,
+        REVIEW_LOCATION
+    };
 
+    enum EditStep
+    {
+        STEP_HOUR,
+        STEP_MINUTE,
+        STEP_YEAR,
+        STEP_MONTH,
+        STEP_DAY,
+        STEP_BRIGHTNESS
+    };
+
+    constexpr uint32_t COLOR_BG          = 0x0E1116;
+    constexpr uint32_t COLOR_CARD        = 0x1A2027;
+    constexpr uint32_t COLOR_CARD_PRESS  = 0x252D37;
+    constexpr uint32_t COLOR_TEXT        = 0xFFFFFF;
+    constexpr uint32_t COLOR_MUTED       = 0x8A94A3;
+    constexpr uint32_t COLOR_ACCENT      = 0x5A8DEE;
+    constexpr uint32_t COLOR_ACTION      = 0x3D6FA8;
+    constexpr uint32_t COLOR_ACTION_EDGE = 0x6FA8FF;
+
+    bool openFlag = false;
+    Page currentPage = PAGE_OVERVIEW;
+    ChoiceMode choiceMode = CHOICE_DATETIME;
+    EditorMode editorMode = EDIT_TIME;
+    ReviewMode reviewMode = REVIEW_TIME;
+    EditStep editStep = STEP_HOUR;
+
+    Clock::DateTime draftDateTime = {2026, 1, 1, 0, 0, 0, 0};
+    Clock::DateTime originalDateTime = {2026, 1, 1, 0, 0, 0, 0};
+    int draftBrightness = 100;
+    int originalBrightness = 100;
+    bool draftTick = true;
+    bool originalTick = true;
+    bool previewActive = false;
+    bool saving = false;
+
+    Page discardSource = PAGE_OVERVIEW;
+    Page discardReturn = PAGE_OVERVIEW;
+
+    unsigned long lastRefreshMs = 0;
+
+    lv_obj_t *overviewScreen = nullptr;
+    lv_obj_t *choiceScreen = nullptr;
+    lv_obj_t *editorScreen = nullptr;
+    lv_obj_t *reviewScreen = nullptr;
     lv_obj_t *locationScreen = nullptr;
-    lv_obj_t *locationOffsetLabel = nullptr;
-    lv_obj_t *locationCurrentLabel = nullptr;
-    lv_obj_t *locationQuickButton[6] = {nullptr};
-    int       locationQuickIndex[6] = {0, 1, 2, 3, 4, 5};
-    lv_obj_t *locationPickerCityLabel = nullptr;
+    lv_obj_t *tickScreen = nullptr;
+    lv_obj_t *discardScreen = nullptr;
+
+    /* Overview */
+    lv_obj_t *overviewBatLabel = nullptr;
+    lv_obj_t *overviewTime = nullptr;
+    lv_obj_t *overviewSeconds = nullptr;
+    lv_obj_t *overviewDate = nullptr;
+    lv_obj_t *overviewCity = nullptr;
+    lv_obj_t *overviewOffset = nullptr;
+    lv_obj_t *overviewBrightness = nullptr;
+
+    /* Choice */
+    lv_obj_t *choiceTitle = nullptr;
+    lv_obj_t *choiceModeLabel = nullptr;
+    lv_obj_t *choiceCard1Label = nullptr;
+    lv_obj_t *choiceCard1Value = nullptr;
+    lv_obj_t *choiceCard1Sub = nullptr;
+    lv_obj_t *choiceCard2Label = nullptr;
+    lv_obj_t *choiceCard2Value = nullptr;
+    lv_obj_t *choiceCard2Sub = nullptr;
+
+    /* Editor */
+    lv_obj_t *editorTitle = nullptr;
+    lv_obj_t *editorStepLabel = nullptr;
+    lv_obj_t *editorFieldLabel = nullptr;
+    lv_obj_t *editorValueLabel = nullptr;
+    lv_obj_t *editorSubLabel = nullptr;
+    lv_obj_t *editorActionLabel = nullptr;
+
+    /* Review */
+    lv_obj_t *reviewTitle = nullptr;
+    lv_obj_t *reviewStatus = nullptr;
+    lv_obj_t *reviewLabel = nullptr;
+    lv_obj_t *reviewValue = nullptr;
+    lv_obj_t *reviewOldNew = nullptr;
+
+    /* Location */
+    lv_obj_t *locationTitle = nullptr;
     lv_obj_t *locationLetterRoller = nullptr;
     lv_obj_t *locationCityRoller = nullptr;
-    int       locationCityIndices[256] = {0};
-    int       locationCityCount = 0;
-    char      locationCityOptions[8192] = {0};
-    const char locationLetterOptions[] = "All\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nL\nM\nN\nO\nP\nQ\nR\nS\nT\nU\nV\nW\nX\nY\nZ";
-    int       locationLetterFilter = -1;
-    int       pendingLocationIndex = 0;
-    bool      locationOpen = false;
-    bool      locationSyncingRollers = false;
+    lv_obj_t *locationReview = nullptr;
+    lv_obj_t *locationHint = nullptr;
+    const char locationLetterOptions[] = "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nL\nM\nN\nO\nP\nQ\nR\nS\nT\nU\nV\nW\nX\nY\nZ";
+    char locationCityOptions[4096] = {0};
+    int locationCityIndices[256] = {0};
+    int locationCityCount = 0;
+    int locationLetterFilter = 0;
+    int locationDraftCity = 0;
+    int lastCityForLetter[26];
+    bool locationSyncing = false;
+    bool locationReviewEnabled = false;
 
-    int selectedField = FIELD_MINUTE;
-    bool openFlag = false;
-    bool controlTouchActive = false;
-    bool controlGestureLock = false;
-    unsigned long controlTouchReleasedMs = 0;
-    unsigned long lastUiRefreshMs = 0;
-    unsigned long lastOffsetRefreshMs = 0;
+    /* Tick sound */
+    lv_obj_t *tickTitle = nullptr;
+    lv_obj_t *tickStateLabel = nullptr;
+    lv_obj_t *tickDetailLabel = nullptr;
+    lv_obj_t *tickToggleLabel = nullptr;
+    lv_obj_t *tickToggleSub = nullptr;
+    lv_obj_t *tickToggleCard = nullptr;
+
+    /* Discard */
+    lv_obj_t *discardMessage = nullptr;
+
+    void showOverview();
+    void showChoice(ChoiceMode mode);
+    void showEditorPage(bool initialize);
+    void showReview(ReviewMode mode);
+    void showLocationPage(bool initialize);
+    void showTickPage(bool initialize);
+    void showDiscard(Page source, Page returnPage);
 
     lv_obj_t *make_label(lv_obj_t *parent, int x, int y, int w, int h,
                          const char *text, const lv_font_t *font,
@@ -86,110 +183,60 @@ namespace
         return label;
     }
 
-    lv_obj_t *make_panel(lv_obj_t *parent, int x, int y, int w, int h)
+    lv_obj_t *make_card(lv_obj_t *parent, int x, int y, int w, int h,
+                        bool clickable = false)
     {
-        lv_obj_t *panel = lv_obj_create(parent);
-        lv_obj_remove_style_all(panel);
-        lv_obj_set_pos(panel, x, y);
-        lv_obj_set_size(panel, w, h);
-        lv_obj_set_style_bg_color(panel, lv_color_hex(0x0A0A0A), 0);
-        lv_obj_set_style_bg_opa(panel, 255, 0);
-        lv_obj_set_style_border_color(panel, lv_color_hex(0x333333), 0);
-        lv_obj_set_style_border_width(panel, 1, 0);
-        lv_obj_set_style_radius(panel, 8, 0);
-        lv_obj_clear_flag(panel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-        return panel;
-    }
-
-    void control_event_cb(lv_event_t *event)
-    {
-        lv_event_code_t code = lv_event_get_code(event);
-        if (code == LV_EVENT_PRESSED) {
-            controlTouchActive = true;
-            controlGestureLock = true;
-        } else if (code == LV_EVENT_RELEASED ||
-                   code == LV_EVENT_PRESS_LOST) {
-            controlTouchActive = false;
-            controlTouchReleasedMs = millis();
+        lv_obj_t *card = lv_obj_create(parent);
+        lv_obj_remove_style_all(card);
+        lv_obj_set_pos(card, x, y);
+        lv_obj_set_size(card, w, h);
+        lv_obj_set_style_bg_color(card, lv_color_hex(COLOR_CARD), 0);
+        lv_obj_set_style_bg_opa(card, 255, 0);
+        lv_obj_set_style_radius(card, 14, 0);
+        lv_obj_set_style_border_width(card, 0, 0);
+        lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+        if (clickable) {
+            lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_set_style_bg_color(card, lv_color_hex(COLOR_CARD_PRESS),
+                                      LV_STATE_PRESSED);
         }
+        return card;
     }
 
-    void guard_control(lv_obj_t *obj)
+    lv_obj_t *make_action_card(lv_obj_t *parent, int x, int y, int w, int h,
+                               const char *text, const lv_font_t *font,
+                               uint32_t bg, uint32_t border, uint32_t fg,
+                               lv_event_cb_t cb, void *userData = nullptr)
     {
-        lv_obj_add_event_cb(obj, control_event_cb, LV_EVENT_ALL, NULL);
-    }
-
-    lv_obj_t *make_button(lv_obj_t *parent, int x, int y, int w, int h,
-                          const char *text, const lv_font_t *font,
-                          lv_event_cb_t cb, void *userData)
-    {
-        lv_obj_t *button = lv_obj_create(parent);
-        lv_obj_remove_style_all(button);
-        lv_obj_set_pos(button, x, y);
-        lv_obj_set_size(button, w, h);
-        lv_obj_add_flag(button, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_bg_color(button, lv_color_hex(0x1A1A1A), 0);
-        lv_obj_set_style_bg_opa(button, 255, 0);
-        lv_obj_set_style_border_color(button, lv_color_hex(0x555555), 0);
-        lv_obj_set_style_border_width(button, 1, 0);
-        lv_obj_set_style_radius(button, 6, 0);
-        lv_obj_set_style_shadow_width(button, 0, 0);
-
-        lv_obj_t *label = lv_label_create(button);
+        lv_obj_t *card = make_card(parent, x, y, w, h, true);
+        lv_obj_set_style_bg_color(card, lv_color_hex(bg), 0);
+        lv_obj_set_style_border_color(card, lv_color_hex(border), 0);
+        lv_obj_set_style_border_width(card, border ? 2 : 0, 0);
+        lv_obj_add_event_cb(card, cb, LV_EVENT_CLICKED, userData);
+        lv_obj_t *label = lv_label_create(card);
+        lv_obj_set_width(label, w);
         lv_label_set_text(label, text);
         lv_obj_set_style_text_font(label, font, 0);
-        lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_center(label);
-
-        lv_obj_add_event_cb(button, cb, LV_EVENT_CLICKED, userData);
-        return button;
-    }
-
-    void updateFieldSelection();
-
-    lv_obj_t *make_field(lv_obj_t *parent, int x, int y, int w, int h,
-                         int field)
-    {
-        lv_obj_t *button = lv_obj_create(parent);
-        lv_obj_remove_style_all(button);
-        lv_obj_set_pos(button, x, y);
-        lv_obj_set_size(button, w, h);
-        lv_obj_add_flag(button, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_set_ext_click_area(button, 4);
-        lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_bg_opa(button, 0, 0);
-        lv_obj_set_style_radius(button, 4, 0);
-        lv_obj_set_style_border_width(button, 0, 0);
-
-        lv_obj_t *label = lv_label_create(button);
-        lv_obj_set_width(label, LV_PCT(100));
-        lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
-        lv_label_set_text(label, "");
-        lv_obj_set_style_text_font(label, &ui_font_Inter18, 0);
-        lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(label, lv_color_hex(fg), 0);
         lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-        lv_obj_add_event_cb(button, [](lv_event_t *event) {
-            selectedField = (int)(intptr_t)lv_event_get_user_data(event);
-            updateFieldSelection();
-        }, LV_EVENT_CLICKED, (void *)(intptr_t)field);
-
-        fieldButton[field] = button;
-        fieldLabel[field] = label;
-        return button;
+        lv_obj_center(label);
+        return card;
     }
 
-    void updateFieldSelection()
+    lv_obj_t *make_back_button(lv_obj_t *parent, lv_event_cb_t cb)
     {
-        for (int i = 0; i < FIELD_COUNT; i++) {
-            bool selected = (i == selectedField);
-            lv_obj_set_style_bg_opa(fieldButton[i], selected ? 255 : 0, 0);
-            lv_obj_set_style_bg_color(fieldButton[i], lv_color_hex(0x333333), 0);
-            lv_obj_set_style_border_width(fieldButton[i], selected ? 1 : 0, 0);
-            lv_obj_set_style_border_color(fieldButton[i], lv_color_hex(0x666666), 0);
-        }
+        return make_action_card(parent, 8, 2, 86, 46, "< Back",
+                                &ui_font_Inter18, 0x1A2027, 0x2E3945,
+                                COLOR_TEXT, cb);
+    }
+
+    lv_obj_t *make_screen()
+    {
+        lv_obj_t *screen = lv_obj_create(NULL);
+        lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_bg_color(screen, lv_color_hex(COLOR_BG), 0);
+        lv_obj_set_style_bg_opa(screen, 255, 0);
+        return screen;
     }
 
     void formatOffset(int offsetSec, char *out, size_t outSize)
@@ -206,160 +253,342 @@ namespace
         }
     }
 
-    void refreshBattery()
+    void formatTimeShort(const Clock::DateTime &dt, char *out, size_t size,
+                         bool withSeconds = false)
     {
-        Battery::update();
-
-        if (Battery::present()) {
-            char digits[8];
-            snprintf(digits, sizeof(digits), "%d", Battery::percent());
-            lv_label_set_text(batteryDigits, digits);
-            lv_obj_set_style_text_font(batteryDigits, &ui_font_Inter66, 0);
-            lv_obj_set_pos(batteryDigits, 8, 18);
-            lv_obj_set_size(batteryDigits, 118, 68);
-            lv_obj_clear_flag(batteryUnit, LV_OBJ_FLAG_HIDDEN);
-
-            int width = (int)(148.0f * (float)Battery::percent() / 100.0f);
-            if (width < 4 && Battery::percent() > 0) width = 4;
-            lv_obj_set_width(batteryLevel, width);
-            if (width > 0) {
-                lv_obj_clear_flag(batteryLevel, LV_OBJ_FLAG_HIDDEN);
-            } else {
-                lv_obj_add_flag(batteryLevel, LV_OBJ_FLAG_HIDDEN);
-            }
-
-            lv_obj_set_style_bg_color(batteryLevel, lv_color_hex(0xFFFFFF), 0);
-
-            int millivolts = (int)(Battery::voltage() * 1000.0f + 0.5f);
-            char voltage[20];
-            snprintf(voltage, sizeof(voltage), "%d.%02d V",
-                     millivolts / 1000, (millivolts % 1000) / 10);
-            lv_label_set_text(batteryVolt, voltage);
-            lv_label_set_text(batteryStatus, "Battery");
+        if (withSeconds) {
+            snprintf(out, size, "%02d:%02d:%02d", dt.hour, dt.minute,
+                     dt.second);
         } else {
-            lv_label_set_text(batteryDigits, "USB");
-            lv_obj_set_style_text_font(batteryDigits, &ui_font_Inter18, 0);
-            lv_obj_set_pos(batteryDigits, 8, 48);
-            lv_obj_set_size(batteryDigits, 118, 28);
-            lv_obj_add_flag(batteryUnit, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(batteryLevel, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text(batteryVolt, "No battery");
-            lv_label_set_text(batteryStatus, "External power");
+            snprintf(out, size, "%02d:%02d", dt.hour, dt.minute);
         }
     }
 
-    void refreshDateTime()
+    void formatDate(const Clock::DateTime &dt, char *out, size_t size)
     {
-        Clock::DateTime dt = Clock::now();
-        char buf[8];
-
-        snprintf(buf, sizeof(buf), "%04d", dt.year);
-        lv_label_set_text(fieldLabel[FIELD_YEAR], buf);
-        snprintf(buf, sizeof(buf), "%02d", dt.month);
-        lv_label_set_text(fieldLabel[FIELD_MONTH], buf);
-        snprintf(buf, sizeof(buf), "%02d", dt.day);
-        lv_label_set_text(fieldLabel[FIELD_DAY], buf);
-        snprintf(buf, sizeof(buf), "%02d", dt.hour);
-        lv_label_set_text(fieldLabel[FIELD_HOUR], buf);
-        snprintf(buf, sizeof(buf), "%02d", dt.minute);
-        lv_label_set_text(fieldLabel[FIELD_MINUTE], buf);
-        snprintf(buf, sizeof(buf), "%02d", dt.second);
-        lv_label_set_text(fieldLabel[FIELD_SECOND], buf);
+        snprintf(out, size, "%04d / %02d / %02d", dt.year, dt.month, dt.day);
     }
 
-    void updateLocationOffset(int index)
+    bool sameDraftDateTime()
     {
-        Clock::DateTime dt = Clock::now();
-        char offset[12];
-        formatOffset(Location::offsetForIndex(index, dt.year, dt.month, dt.day),
-                     offset, sizeof(offset));
-        lv_label_set_text(locationOffsetLabel, offset);
+        return draftDateTime.year == originalDateTime.year &&
+               draftDateTime.month == originalDateTime.month &&
+               draftDateTime.day == originalDateTime.day &&
+               draftDateTime.hour == originalDateTime.hour &&
+               draftDateTime.minute == originalDateTime.minute &&
+               draftDateTime.second == originalDateTime.second;
     }
 
-    char locationInitial(int index)
+    bool editorDirty()
+    {
+        if (editorMode == EDIT_BRIGHTNESS) {
+            return draftBrightness != originalBrightness;
+        }
+        return !sameDraftDateTime();
+    }
+
+    void refreshOverview()
+    {
+        Clock::DateTime now = Clock::now();
+        char text[40];
+
+        Battery::update();
+        if (Battery::present()) {
+            snprintf(text, sizeof(text), "BAT %d%%  |  %d%%",
+                     Battery::percent(), Brightness::current());
+        } else {
+            snprintf(text, sizeof(text), "BAT USB  |  %d%%",
+                     Brightness::current());
+        }
+        if (overviewBatLabel) lv_label_set_text(overviewBatLabel, text);
+
+        if (overviewTime) {
+            formatTimeShort(now, text, sizeof(text));
+            lv_label_set_text(overviewTime, text);
+        }
+        if (overviewSeconds) {
+            snprintf(text, sizeof(text), ":%02d", now.second);
+            lv_label_set_text(overviewSeconds, text);
+        }
+        if (overviewDate) {
+            formatDate(now, text, sizeof(text));
+            lv_label_set_text(overviewDate, text);
+        }
+        if (overviewCity) {
+            lv_label_set_text(overviewCity, Location::city());
+        }
+        if (overviewOffset) {
+            char offset[12];
+            formatOffset(Location::offsetForDate(now.year, now.month, now.day),
+                         offset, sizeof(offset));
+            lv_label_set_text(overviewOffset, offset);
+        }
+        if (overviewBrightness) {
+            snprintf(text, sizeof(text), "%d%%", Brightness::current());
+            lv_label_set_text(overviewBrightness, text);
+        }
+    }
+
+    void refreshChoice()
+    {
+        Clock::DateTime now = Clock::now();
+        char value[32];
+        char sub[40];
+
+        lv_obj_set_style_text_font(
+            choiceCard2Value,
+            choiceMode == CHOICE_DATETIME ? &ui_font_Inter28 : &ui_font_Inter42,
+            0);
+
+        if (choiceMode == CHOICE_DATETIME) {
+            lv_label_set_text(choiceTitle, "Date & Time");
+            lv_label_set_text(choiceModeLabel, "DATE & TIME");
+            lv_label_set_text(choiceCard1Label, "SET TIME");
+            formatTimeShort(now, value, sizeof(value));
+            lv_label_set_text(choiceCard1Value, value);
+            lv_label_set_text(choiceCard1Sub, "Hour / minute");
+            lv_label_set_text(choiceCard2Label, "SET DATE");
+            formatDate(now, value, sizeof(value));
+            lv_label_set_text(choiceCard2Value, value);
+            lv_label_set_text(choiceCard2Sub, "Year / month / day");
+        } else {
+            lv_label_set_text(choiceTitle, "Display");
+            lv_label_set_text(choiceModeLabel, "DISPLAY");
+            lv_label_set_text(choiceCard1Label, "BRIGHTNESS");
+            snprintf(value, sizeof(value), "%d%%", Brightness::current());
+            lv_label_set_text(choiceCard1Value, value);
+            lv_label_set_text(choiceCard1Sub, "Step: 5%");
+            lv_label_set_text(choiceCard2Label, "TICK SOUND");
+            lv_label_set_text(choiceCard2Value,
+                              Audio::enabled() ? "Audible" : "Muted");
+            snprintf(sub, sizeof(sub), "1 tick / second  |  %s",
+                     Audio::enabled() ? "ON" : "OFF");
+            lv_label_set_text(choiceCard2Sub, sub);
+        }
+    }
+
+    void refreshEditor()
+    {
+        char text[48];
+        char step[40];
+
+        lv_obj_set_style_text_font(editorValueLabel,
+            editorMode == EDIT_DATE ? &ui_font_Inter28 : &ui_font_Inter42, 0);
+
+        switch (editorMode) {
+        case EDIT_TIME:
+            lv_label_set_text(editorTitle, "Set time");
+            formatTimeShort(draftDateTime, text, sizeof(text));
+            lv_label_set_text(editorValueLabel, text);
+            lv_label_set_text(editorSubLabel, "");
+            if (editStep == STEP_HOUR) {
+                lv_label_set_text(editorStepLabel, "STEP 1 / 2  |  HOUR");
+                lv_label_set_text(editorFieldLabel, "HOUR");
+                lv_label_set_text(editorActionLabel, "Next >");
+            } else {
+                lv_label_set_text(editorStepLabel, "STEP 2 / 2  |  MINUTE");
+                lv_label_set_text(editorFieldLabel, "MINUTE");
+                lv_label_set_text(editorActionLabel, "Review >");
+            }
+            break;
+
+        case EDIT_DATE:
+            lv_label_set_text(editorTitle, "Set date");
+            formatDate(draftDateTime, text, sizeof(text));
+            lv_label_set_text(editorValueLabel, text);
+            lv_label_set_text(editorSubLabel, "");
+            if (editStep == STEP_YEAR) {
+                lv_label_set_text(editorStepLabel, "STEP 1 / 3  |  YEAR");
+                lv_label_set_text(editorFieldLabel, "YEAR");
+                lv_label_set_text(editorActionLabel, "Next >");
+            } else if (editStep == STEP_MONTH) {
+                lv_label_set_text(editorStepLabel, "STEP 2 / 3  |  MONTH");
+                lv_label_set_text(editorFieldLabel, "MONTH");
+                lv_label_set_text(editorActionLabel, "Next >");
+            } else {
+                lv_label_set_text(editorStepLabel, "STEP 3 / 3  |  DAY");
+                lv_label_set_text(editorFieldLabel, "DAY");
+                lv_label_set_text(editorActionLabel, "Review >");
+            }
+            break;
+
+        case EDIT_BRIGHTNESS:
+            lv_label_set_text(editorTitle, "Brightness");
+            snprintf(step, sizeof(step), "PREVIEW  |  %d%%",
+                     draftBrightness);
+            lv_label_set_text(editorStepLabel, step);
+            lv_label_set_text(editorFieldLabel, "BRIGHTNESS");
+            snprintf(text, sizeof(text), "%d%%", draftBrightness);
+            lv_label_set_text(editorValueLabel, text);
+            lv_label_set_text(editorSubLabel, "Step: 5%");
+            lv_label_set_text(editorActionLabel, "Save");
+            break;
+        }
+    }
+
+    void refreshReview()
+    {
+        char value[64];
+        char oldNew[128];
+
+        switch (reviewMode) {
+        case REVIEW_TIME: {
+            Clock::DateTime old = originalDateTime;
+            char oldText[24];
+            formatTimeShort(old, oldText, sizeof(oldText), true);
+            formatTimeShort(draftDateTime, value, sizeof(value), true);
+            snprintf(oldNew, sizeof(oldNew), "%s  >  %s",
+                     oldText, value);
+            lv_label_set_text(reviewTitle, "Confirm changes");
+            lv_label_set_text(reviewLabel, "TIME");
+            lv_label_set_text(reviewValue, value);
+            lv_label_set_text(reviewOldNew, oldNew);
+            break;
+        }
+
+        case REVIEW_DATE: {
+            char oldText[24];
+            formatDate(originalDateTime, oldText, sizeof(oldText));
+            formatDate(draftDateTime, value, sizeof(value));
+            snprintf(oldNew, sizeof(oldNew), "%s  >  %s",
+                     oldText, value);
+            lv_label_set_text(reviewTitle, "Confirm changes");
+            lv_label_set_text(reviewLabel, "DATE");
+            lv_label_set_text(reviewValue, value);
+            lv_label_set_text(reviewOldNew, oldNew);
+            break;
+        }
+
+        case REVIEW_LOCATION: {
+            Clock::DateTime now = Clock::now();
+            char oldOffset[12];
+            char newOffset[12];
+            formatOffset(Location::offsetForIndex(Location::index(),
+                                                 now.year, now.month, now.day),
+                         oldOffset, sizeof(oldOffset));
+            formatOffset(Location::offsetForIndex(locationDraftCity,
+                                                 now.year, now.month, now.day),
+                         newOffset, sizeof(newOffset));
+            lv_label_set_text(reviewTitle, "Confirm changes");
+            lv_label_set_text(reviewLabel, "LOCATION");
+            lv_label_set_text(reviewValue, Location::at(locationDraftCity).name);
+            snprintf(oldNew, sizeof(oldNew), "%s  >  %s  |  %s",
+                     Location::city(), Location::at(locationDraftCity).name,
+                     newOffset);
+            lv_label_set_text(reviewOldNew, oldNew);
+            break;
+        }
+        }
+        lv_label_set_text(reviewStatus, "PREVIEW  |  NOT SAVED");
+    }
+
+    void refreshTick()
+    {
+        char detail[48];
+        if (draftTick) {
+            lv_label_set_text(tickStateLabel, "Audible");
+            snprintf(detail, sizeof(detail), "1 tick / second  |  ON");
+            lv_label_set_text(tickDetailLabel, detail);
+            lv_label_set_text(tickToggleLabel, "Mute");
+            lv_obj_set_style_border_color(tickToggleCard,
+                                          lv_color_hex(0xB06A8A), 0);
+        } else {
+            lv_label_set_text(tickStateLabel, "Muted");
+            snprintf(detail, sizeof(detail), "1 tick / second  |  OFF");
+            lv_label_set_text(tickDetailLabel, detail);
+            lv_label_set_text(tickToggleLabel, "Unmute");
+            lv_obj_set_style_border_color(tickToggleCard,
+                                          lv_color_hex(0x5A8DEE), 0);
+        }
+    }
+
+    void loadPage(lv_obj_t *screen, lv_scr_load_anim_t anim)
+    {
+        lv_scr_load_anim(screen, anim, 150, 0, false);
+    }
+
+    void showOverview()
+    {
+        currentPage = PAGE_OVERVIEW;
+        refreshOverview();
+        loadPage(overviewScreen, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
+    }
+
+    void showChoice(ChoiceMode mode)
+    {
+        choiceMode = mode;
+        currentPage = PAGE_CHOICE;
+        refreshChoice();
+        loadPage(choiceScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
+
+    void showEditorPage(bool initialize)
+    {
+        currentPage = PAGE_EDITOR;
+        if (initialize) {
+            Clock::DateTime now = Clock::now();
+            draftDateTime = now;
+            originalDateTime = now;
+            if (editorMode == EDIT_BRIGHTNESS) {
+                originalBrightness = Brightness::current();
+                draftBrightness = originalBrightness;
+                previewActive = true;
+            }
+        }
+        refreshEditor();
+        loadPage(editorScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
+
+    void showReview(ReviewMode mode)
+    {
+        reviewMode = mode;
+        currentPage = PAGE_REVIEW;
+        refreshReview();
+        loadPage(reviewScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
+
+    int letterOfCity(int index)
     {
         const char *name = Location::at(index).name;
-        if (!name || !name[0]) return '\0';
-        char c = name[0];
+        char c = (name && name[0]) ? name[0] : 'A';
         if (c >= 'a' && c <= 'z') c -= 32;
-        return c;
+        if (c < 'A' || c > 'Z') c = 'A';
+        return c - 'A';
     }
 
-    bool locationMatchesFilter(int index)
+    bool cityMatchesLetter(int index)
     {
-        if (locationLetterFilter < 0) return true;
-        return locationInitial(index) == (char)('A' + locationLetterFilter);
+        return letterOfCity(index) == locationLetterFilter;
     }
 
-    void updateLocationPickerSummary(int index)
+    void rebuildLocationCities()
     {
-        if (!locationPickerCityLabel) return;
-
-        Clock::DateTime dt = Clock::now();
-        char offset[12];
-        formatOffset(Location::offsetForIndex(index, dt.year, dt.month, dt.day),
-                     offset, sizeof(offset));
-
-        char text[64];
-        snprintf(text, sizeof(text), "%s  %s",
-                 Location::at(index).name, offset);
-        lv_label_set_text(locationPickerCityLabel, text);
-    }
-
-    void styleLocationRoller(lv_obj_t *roller, lv_text_align_t align,
-                             lv_coord_t padLeft)
-    {
-        lv_obj_set_style_bg_opa(roller, 0, LV_PART_MAIN);
-        lv_obj_set_style_border_width(roller, 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(roller, 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_left(roller, padLeft, LV_PART_MAIN);
-        lv_obj_set_style_text_font(roller, &ui_font_Inter18, LV_PART_MAIN);
-        lv_obj_set_style_text_color(roller, lv_color_hex(0xAAAAAA),
-                                    LV_PART_MAIN);
-        lv_obj_set_style_text_align(roller, align, LV_PART_MAIN);
-        lv_obj_set_style_text_line_space(roller, 0, LV_PART_MAIN);
-
-        lv_obj_set_style_bg_color(roller, lv_color_hex(0x333333),
-                                  LV_PART_SELECTED);
-        lv_obj_set_style_bg_opa(roller, 255, LV_PART_SELECTED);
-        lv_obj_set_style_text_color(roller, lv_color_hex(0xFFFFFF),
-                                    LV_PART_SELECTED);
-        lv_obj_set_style_radius(roller, 6, LV_PART_SELECTED);
-    }
-
-    void rebuildCityRollerOptions()
-    {
-        if (!locationCityRoller) return;
-
         locationCityCount = 0;
         locationCityOptions[0] = '\0';
 
         for (int i = 0; i < Location::count() && i < 256; i++) {
-            if (locationMatchesFilter(i)) {
+            if (cityMatchesLetter(i)) {
                 locationCityIndices[locationCityCount++] = i;
             }
         }
 
-        if (locationCityCount == 0) {
-            snprintf(locationCityOptions, sizeof(locationCityOptions), "--");
-        } else {
-            /* The source table keeps the original six cities first.  Sort the
-             * filtered roller alphabetically so the selected city sits in its
-             * natural place instead of at the top of its letter group. */
-            for (int i = 1; i < locationCityCount; i++) {
-                int key = locationCityIndices[i];
-                int j = i - 1;
-                while (j >= 0 &&
-                       strcmp(Location::at(locationCityIndices[j]).name,
-                              Location::at(key).name) > 0) {
-                    locationCityIndices[j + 1] = locationCityIndices[j];
-                    j--;
-                }
-                locationCityIndices[j + 1] = key;
+        for (int i = 1; i < locationCityCount; i++) {
+            int key = locationCityIndices[i];
+            int j = i - 1;
+            while (j >= 0 &&
+                   strcmp(Location::at(locationCityIndices[j]).name,
+                          Location::at(key).name) > 0) {
+                locationCityIndices[j + 1] = locationCityIndices[j];
+                j--;
             }
+            locationCityIndices[j + 1] = key;
+        }
 
+        if (locationCityCount == 0) {
+            snprintf(locationCityOptions, sizeof(locationCityOptions),
+                     "No cities");
+        } else {
             size_t used = 0;
-            locationCityOptions[0] = '\0';
             for (int i = 0; i < locationCityCount; i++) {
                 int written = snprintf(
                     locationCityOptions + used,
@@ -374,545 +603,697 @@ namespace
                 used += (size_t)written;
             }
         }
+
         lv_roller_set_options(locationCityRoller, locationCityOptions,
                               LV_ROLLER_MODE_NORMAL);
     }
 
-    void syncCityRollerToPending()
+    int cityRollerIndexFor(int cityIndex)
     {
-        if (!locationCityRoller) return;
-
-        int target = 0;
-        bool found = false;
         for (int i = 0; i < locationCityCount; i++) {
-            if (locationCityIndices[i] == pendingLocationIndex) {
-                target = i;
-                found = true;
-                break;
-            }
+            if (locationCityIndices[i] == cityIndex) return i;
         }
-
-        if (!found && locationCityCount > 0) {
-            pendingLocationIndex = locationCityIndices[0];
-            target = 0;
-        }
-
-        if (locationCityCount > 0) {
-            locationSyncingRollers = true;
-            lv_roller_set_selected(locationCityRoller, (uint16_t)target,
-                                   LV_ANIM_OFF);
-            locationSyncingRollers = false;
-        }
-
-        updateLocationPickerSummary(pendingLocationIndex);
+        return -1;
     }
 
-    void refreshLocationPicker()
+    void syncLocationRollers()
     {
-        if (!locationLetterRoller || !locationCityRoller) return;
+        locationSyncing = true;
+        lv_roller_set_selected(locationLetterRoller,
+                               (uint16_t)locationLetterFilter, LV_ANIM_OFF);
+        rebuildLocationCities();
 
-        int letterIndex = locationLetterFilter + 1;
-        if (letterIndex < 0) letterIndex = 0;
-        if (letterIndex > 26) letterIndex = 26;
-
-        locationSyncingRollers = true;
-        lv_roller_set_selected(locationLetterRoller, (uint16_t)letterIndex,
-                               LV_ANIM_OFF);
-        rebuildCityRollerOptions();
-        locationSyncingRollers = false;
-
-        syncCityRollerToPending();
+        int target = cityRollerIndexFor(locationDraftCity);
+        if (target < 0 && locationCityCount > 0) {
+            target = 0;
+            locationDraftCity = locationCityIndices[0];
+            lastCityForLetter[locationLetterFilter] = locationDraftCity;
+        }
+        if (locationCityCount > 0) {
+            lv_roller_set_selected(locationCityRoller, (uint16_t)target,
+                                   LV_ANIM_OFF);
+        }
+        locationReviewEnabled = (locationCityCount > 0);
+        if (locationReview) {
+            lv_obj_set_style_opa(locationReview,
+                                 locationReviewEnabled ? 255 : 100, 0);
+        }
+        locationSyncing = false;
     }
 
     void onLocationLetterChanged(lv_event_t *event)
     {
-        if (locationSyncingRollers) return;
+        if (locationSyncing) return;
 
-        int selected = (int)lv_roller_get_selected(lv_event_get_target(event));
-        locationLetterFilter = selected - 1;
+        locationLetterFilter =
+            (int)lv_roller_get_selected(lv_event_get_target(event));
 
-        locationSyncingRollers = true;
-        rebuildCityRollerOptions();
-        locationSyncingRollers = false;
+        int preferred = lastCityForLetter[locationLetterFilter];
+        locationSyncing = true;
+        rebuildLocationCities();
 
-        syncCityRollerToPending();
+        int target = 0;
+        if (preferred >= 0) {
+            int found = cityRollerIndexFor(preferred);
+            if (found >= 0) target = found;
+        }
+        if (locationCityCount > 0) {
+            locationDraftCity = locationCityIndices[target];
+            lastCityForLetter[locationLetterFilter] = locationDraftCity;
+            lv_roller_set_selected(locationCityRoller, (uint16_t)target,
+                                   LV_ANIM_OFF);
+        }
+        locationReviewEnabled = (locationCityCount > 0);
+        if (locationReview) {
+            lv_obj_set_style_opa(locationReview,
+                                 locationReviewEnabled ? 255 : 100, 0);
+        }
+        locationSyncing = false;
     }
 
     void onLocationCityChanged(lv_event_t *event)
     {
-        if (locationSyncingRollers) return;
+        if (locationSyncing) return;
 
         int selected = (int)lv_roller_get_selected(lv_event_get_target(event));
         if (selected >= 0 && selected < locationCityCount) {
-            pendingLocationIndex = locationCityIndices[selected];
-            updateLocationPickerSummary(pendingLocationIndex);
+            locationDraftCity = locationCityIndices[selected];
+            lastCityForLetter[locationLetterFilter] = locationDraftCity;
         }
     }
 
-    void refreshSettingsLocation()
+    void showLocationPage(bool initialize)
     {
-        if (!locationCurrentLabel) return;
+        currentPage = PAGE_LOCATION;
+        if (initialize) {
+            locationDraftCity = Location::index();
+            locationLetterFilter = letterOfCity(locationDraftCity);
+            for (int i = 0; i < 26; i++) lastCityForLetter[i] = -1;
+            lastCityForLetter[locationLetterFilter] = locationDraftCity;
+        }
+        syncLocationRollers();
+        loadPage(locationScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
 
-        lv_label_set_text(locationCurrentLabel, Location::city());
-        updateLocationOffset(Location::index());
+    void refreshTickScreen()
+    {
+        refreshTick();
+        loadPage(tickScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
 
-        for (int i = 0; i < 6; i++) {
-            if (!locationQuickButton[i]) continue;
-            bool selected = (locationQuickIndex[i] == Location::index());
-            lv_obj_set_style_bg_color(
-                locationQuickButton[i],
-                lv_color_hex(selected ? 0x333333 : 0x1A1A1A), 0);
-            lv_obj_set_style_border_color(
-                locationQuickButton[i],
-                lv_color_hex(selected ? 0x888888 : 0x555555), 0);
+    void showTickPage(bool initialize)
+    {
+        currentPage = PAGE_TICK;
+        if (initialize) {
+            originalTick = Audio::enabled();
+            draftTick = originalTick;
+            previewActive = true;
+        }
+        refreshTick();
+        loadPage(tickScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
+
+    void showDiscard(Page source, Page returnPage)
+    {
+        discardSource = source;
+        discardReturn = returnPage;
+        currentPage = PAGE_DISCARD;
+        if (source == PAGE_EDITOR) {
+            lv_label_set_text(discardMessage, "Discard this edit?");
+        } else if (source == PAGE_LOCATION) {
+            lv_label_set_text(discardMessage, "Discard city change?");
+        } else if (source == PAGE_TICK) {
+            lv_label_set_text(discardMessage, "Discard tick sound change?");
+        }
+        loadPage(discardScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT);
+    }
+
+    void discardKeep()
+    {
+        if (discardSource == PAGE_EDITOR) showEditorPage(false);
+        else if (discardSource == PAGE_LOCATION) showLocationPage(false);
+        else if (discardSource == PAGE_TICK) showTickPage(false);
+    }
+
+    void discardConfirm()
+    {
+        if (discardSource == PAGE_EDITOR && editorMode == EDIT_BRIGHTNESS) {
+            Brightness::set(originalBrightness);
+        }
+        if (discardSource == PAGE_TICK) {
+            Audio::setEnabled(originalTick, false);
+        }
+        previewActive = false;
+
+        if (discardReturn == PAGE_CHOICE) showChoice(choiceMode);
+        else showOverview();
+    }
+
+    void requestEditorBack()
+    {
+        if (editorDirty()) {
+            showDiscard(PAGE_EDITOR, PAGE_CHOICE);
+        } else {
+            previewActive = false;
+            showChoice(choiceMode);
         }
     }
 
-    void refreshLocation()
+    void requestLocationBack()
     {
-        refreshSettingsLocation();
-        if (locationOpen) refreshLocationPicker();
+        if (locationDraftCity != Location::index()) {
+            showDiscard(PAGE_LOCATION, PAGE_OVERVIEW);
+        } else {
+            showOverview();
+        }
     }
 
-    void refreshBrightnessControl()
+    void requestTickBack()
     {
-        if (!brightnessSlider) return;
-        int value = Brightness::current();
-        if (lv_slider_get_value(brightnessSlider) != value) {
-            lv_slider_set_value(brightnessSlider, value, LV_ANIM_OFF);
+        if (draftTick != originalTick) {
+            showDiscard(PAGE_TICK, PAGE_CHOICE);
+        } else {
+            previewActive = false;
+            showChoice(CHOICE_DISPLAY);
         }
-        char text[8];
-        snprintf(text, sizeof(text), "%d%%", value);
-        lv_label_set_text(brightnessValueLabel, text);
     }
 
-    void refreshAll()
+    void requestReviewBack()
     {
-        refreshDateTime();
-        refreshBattery();
-        refreshLocation();
-        refreshBrightnessControl();
-        lastUiRefreshMs = millis();
-        lastOffsetRefreshMs = millis();
+        if (reviewMode == REVIEW_LOCATION) showLocationPage(false);
+        else showEditorPage(false);
     }
 
-    void adjustSelected(int delta)
+    void adjustEditor(int delta)
     {
-        Clock::DateTime dt = Clock::now();
-        int year = dt.year;
-        int month = dt.month;
-        int day = dt.day;
-        int hour = dt.hour;
-        int minute = dt.minute;
-        int second = dt.second;
-
-        switch (selectedField) {
-        case FIELD_YEAR:
-            year += delta;
-            if (year < 2020) year = 2020;
-            if (year > 2069) year = 2069;
-            break;
-
-        case FIELD_MONTH:
-            month += delta;
-            if (month < 1) month = 12;
-            if (month > 12) month = 1;
-            break;
-
-        case FIELD_DAY:
-            day += delta;
-            if (day < 1) {
-                month--;
-                if (month < 1) {
-                    month = 12;
-                    year--;
-                    if (year < 2020) {
-                        year = 2020;
-                        month = 1;
-                    }
-                }
-                day = Clock::daysInMonth(year, month);
-            } else if (day > Clock::daysInMonth(year, month)) {
-                day = 1;
-                month++;
-                if (month > 12) {
-                    month = 1;
-                    year++;
-                    if (year > 2069) {
-                        year = 2069;
-                        month = 12;
-                        day = 31;
-                    }
-                }
-            }
-            break;
-
-        case FIELD_HOUR:
-            hour = (hour + delta + 24) % 24;
-            break;
-
-        case FIELD_MINUTE:
-            minute = (minute + delta + 60) % 60;
-            break;
-
-        case FIELD_SECOND:
-            second = (second + delta + 60) % 60;
-            break;
-        }
-
-        if (day > Clock::daysInMonth(year, month)) {
-            day = Clock::daysInMonth(year, month);
-        }
-
-        if (Clock::setDateTime(year, month, day, hour, minute, second)) {
-            SettingsStore::save();
-            if (selectedField <= FIELD_DAY) {
-                Astronomy::update(true);
+        if (editorMode == EDIT_TIME) {
+            if (editStep == STEP_HOUR) {
+                draftDateTime.hour = (draftDateTime.hour + delta + 24) % 24;
             } else {
-                /* The rise/set times only change at midnight, but the moon
-                 * orientation follows the current hour angle immediately. */
-                Astronomy::updateOrientation();
+                draftDateTime.minute =
+                    (draftDateTime.minute + delta + 60) % 60;
             }
-            refreshDateTime();
-            refreshLocation();
+        } else if (editorMode == EDIT_DATE) {
+            if (editStep == STEP_YEAR) {
+                draftDateTime.year += delta;
+                if (draftDateTime.year < 2020) draftDateTime.year = 2020;
+                if (draftDateTime.year > 2069) draftDateTime.year = 2069;
+                int maxDay = Clock::daysInMonth(draftDateTime.year,
+                                                draftDateTime.month);
+                if (draftDateTime.day > maxDay) draftDateTime.day = maxDay;
+            } else if (editStep == STEP_MONTH) {
+                int month = draftDateTime.month + delta;
+                if (month < 1) month = 12;
+                if (month > 12) month = 1;
+                draftDateTime.month = month;
+                int maxDay = Clock::daysInMonth(draftDateTime.year,
+                                                draftDateTime.month);
+                if (draftDateTime.day > maxDay) draftDateTime.day = maxDay;
+            } else {
+                draftDateTime.day += delta;
+                int maxDay = Clock::daysInMonth(draftDateTime.year,
+                                                draftDateTime.month);
+                if (draftDateTime.day < 1) draftDateTime.day = 1;
+                if (draftDateTime.day > maxDay) draftDateTime.day = maxDay;
+            }
+        } else {
+            draftBrightness += delta * 5;
+            /* Keep the panel readable; lower values are unsafe on this LCD. */
+            if (draftBrightness < 40) draftBrightness = 40;
+            if (draftBrightness > 100) draftBrightness = 100;
+            Brightness::set(draftBrightness);
+            previewActive = true;
+        }
+        refreshEditor();
+    }
+
+    void editorNext()
+    {
+        if (editorMode == EDIT_TIME) {
+            if (editStep == STEP_HOUR) {
+                editStep = STEP_MINUTE;
+                refreshEditor();
+            } else {
+                showReview(REVIEW_TIME);
+            }
+        } else if (editorMode == EDIT_DATE) {
+            if (editStep == STEP_YEAR) {
+                editStep = STEP_MONTH;
+                refreshEditor();
+            } else if (editStep == STEP_MONTH) {
+                editStep = STEP_DAY;
+                refreshEditor();
+            } else {
+                showReview(REVIEW_DATE);
+            }
+        } else {
+            previewActive = false;
+            Brightness::set(draftBrightness);
+            SettingsStore::save();
+            showOverview();
         }
     }
 
+    bool applyLocation(int index)
+    {
+        if (index < 0 || index >= Location::count()) return false;
+        if (index == Location::index()) return true;
+
+        Clock::DateTime now = Clock::now();
+        int oldOffset = Location::offsetForDate(now.year, now.month, now.day);
+        time_t utc = Clock::localEpoch() - (time_t)oldOffset;
+
+        if (!Location::setIndex(index)) return false;
+        int newOffset = Location::offsetForUtc(utc);
+        if (!Clock::setFromUtc(utc, newOffset)) return false;
+
+        SettingsStore::save();
+        Astronomy::update(true);
+        return true;
+    }
+
+    void reviewSave()
+    {
+        if (saving) return;
+        saving = true;
+
+        bool ok = false;
+        if (reviewMode == REVIEW_LOCATION) {
+            ok = applyLocation(locationDraftCity);
+        } else {
+            ok = Clock::setDateTime(draftDateTime.year, draftDateTime.month,
+                                    draftDateTime.day, draftDateTime.hour,
+                                    draftDateTime.minute,
+                                    draftDateTime.second);
+            if (ok) {
+                SettingsStore::save();
+                Astronomy::update(true);
+            }
+        }
+
+        saving = false;
+        if (ok) {
+            previewActive = false;
+            showOverview();
+        } else {
+            lv_label_set_text(reviewStatus, "SAVE FAILED  |  RETRY");
+        }
+    }
+
+    void reviewCancel()
+    {
+        previewActive = false;
+        showOverview();
+    }
+
+    void createOverview()
+    {
+        overviewScreen = make_screen();
+        make_label(overviewScreen, 12, 8, 240, 32, "Settings",
+                   &ui_font_Inter28, COLOR_TEXT, LV_TEXT_ALIGN_LEFT);
+        overviewBatLabel = make_label(overviewScreen, 380, 18, 248, 18, "",
+                                      &ui_font_Inter15M, COLOR_MUTED,
+                                      LV_TEXT_ALIGN_RIGHT);
+
+        lv_obj_t *dateCard = make_card(overviewScreen, 12, 54, 200, 106, true);
+        lv_obj_add_event_cb(dateCard, [](lv_event_t *) {
+            showChoice(CHOICE_DATETIME);
+        }, LV_EVENT_CLICKED, NULL);
+        make_label(dateCard, 12, 10, 170, 12, "DATE & TIME",
+                   &ui_font_Inter10M, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+        overviewTime = make_label(dateCard, 12, 22, 124, 50, "",
+                                  &ui_font_Inter42, COLOR_TEXT,
+                                  LV_TEXT_ALIGN_LEFT);
+        overviewSeconds = make_label(dateCard, 136, 50, 40, 20, "",
+                                     &ui_font_Inter18, COLOR_MUTED,
+                                     LV_TEXT_ALIGN_LEFT);
+        overviewDate = make_label(dateCard, 12, 78, 170, 18, "",
+                                  &ui_font_Inter18, COLOR_MUTED,
+                                  LV_TEXT_ALIGN_LEFT);
+        make_label(dateCard, 168, 44, 20, 20, "\xEF\x81\x94",
+                   &ui_font_FA14, COLOR_ACCENT, LV_TEXT_ALIGN_CENTER);
+
+        lv_obj_t *cityCard = make_card(overviewScreen, 220, 54, 200, 106, true);
+        lv_obj_add_event_cb(cityCard, [](lv_event_t *) {
+            showLocationPage(true);
+        }, LV_EVENT_CLICKED, NULL);
+        make_label(cityCard, 12, 10, 170, 12, "LOCATION",
+                   &ui_font_Inter10M, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+        overviewCity = make_label(cityCard, 12, 24, 170, 34, "",
+                                  &ui_font_Inter28, COLOR_TEXT,
+                                  LV_TEXT_ALIGN_LEFT);
+        overviewOffset = make_label(cityCard, 12, 78, 170, 18, "",
+                                    &ui_font_Inter18, COLOR_MUTED,
+                                    LV_TEXT_ALIGN_LEFT);
+        make_label(cityCard, 168, 44, 20, 20, "\xEF\x81\x94",
+                   &ui_font_FA14, COLOR_ACCENT, LV_TEXT_ALIGN_CENTER);
+
+        lv_obj_t *displayCard = make_card(overviewScreen, 428, 54, 200, 106,
+                                          true);
+        lv_obj_add_event_cb(displayCard, [](lv_event_t *) {
+            showChoice(CHOICE_DISPLAY);
+        }, LV_EVENT_CLICKED, NULL);
+        make_label(displayCard, 12, 10, 170, 12, "DISPLAY",
+                   &ui_font_Inter10M, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+        overviewBrightness = make_label(displayCard, 12, 22, 170, 50, "",
+                                        &ui_font_Inter42, COLOR_TEXT,
+                                        LV_TEXT_ALIGN_LEFT);
+        make_label(displayCard, 12, 78, 170, 18, "Brightness",
+                   &ui_font_Inter18, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+        make_label(displayCard, 168, 44, 20, 20, "\xEF\x81\x94",
+                   &ui_font_FA14, COLOR_ACCENT, LV_TEXT_ALIGN_CENTER);
+    }
+
+    void createChoice()
+    {
+        choiceScreen = make_screen();
+        make_back_button(choiceScreen, [](lv_event_t *) { showOverview(); });
+        choiceTitle = make_label(choiceScreen, 110, 12, 300, 32, "",
+                                 &ui_font_Inter28, COLOR_TEXT,
+                                 LV_TEXT_ALIGN_LEFT);
+        choiceModeLabel = make_label(choiceScreen, 420, 18, 208, 18, "",
+                                     &ui_font_Inter15M, COLOR_MUTED,
+                                     LV_TEXT_ALIGN_RIGHT);
+
+        lv_obj_t *card1 = make_card(choiceScreen, 12, 57, 300, 100, true);
+        lv_obj_add_event_cb(card1, [](lv_event_t *) {
+            if (choiceMode == CHOICE_DATETIME) {
+                editorMode = EDIT_TIME;
+                editStep = STEP_HOUR;
+                showEditorPage(true);
+            } else {
+                editorMode = EDIT_BRIGHTNESS;
+                editStep = STEP_BRIGHTNESS;
+                showEditorPage(true);
+            }
+        }, LV_EVENT_CLICKED, NULL);
+        choiceCard1Label = make_label(card1, 12, 10, 250, 14, "",
+                                      &ui_font_Inter10M, COLOR_MUTED,
+                                      LV_TEXT_ALIGN_LEFT);
+        choiceCard1Value = make_label(card1, 12, 28, 250, 48, "",
+                                      &ui_font_Inter42, COLOR_TEXT,
+                                      LV_TEXT_ALIGN_LEFT);
+        choiceCard1Sub = make_label(card1, 12, 76, 250, 18, "",
+                                    &ui_font_Inter18, COLOR_MUTED,
+                                    LV_TEXT_ALIGN_LEFT);
+        make_label(card1, 270, 38, 20, 20, "\xEF\x81\x94",
+                   &ui_font_FA14, COLOR_ACCENT, LV_TEXT_ALIGN_CENTER);
+
+        lv_obj_t *card2 = make_card(choiceScreen, 320, 57, 300, 100, true);
+        lv_obj_add_event_cb(card2, [](lv_event_t *) {
+            if (choiceMode == CHOICE_DATETIME) {
+                editorMode = EDIT_DATE;
+                editStep = STEP_YEAR;
+                showEditorPage(true);
+            } else {
+                showTickPage(true);
+            }
+        }, LV_EVENT_CLICKED, NULL);
+        choiceCard2Label = make_label(card2, 12, 10, 250, 14, "",
+                                      &ui_font_Inter10M, COLOR_MUTED,
+                                      LV_TEXT_ALIGN_LEFT);
+        choiceCard2Value = make_label(card2, 12, 28, 250, 48, "",
+                                      &ui_font_Inter42, COLOR_TEXT,
+                                      LV_TEXT_ALIGN_LEFT);
+        choiceCard2Sub = make_label(card2, 12, 76, 250, 18, "",
+                                    &ui_font_Inter18, COLOR_MUTED,
+                                    LV_TEXT_ALIGN_LEFT);
+        make_label(card2, 270, 38, 20, 20, "\xEF\x81\x94",
+                   &ui_font_FA14, COLOR_ACCENT, LV_TEXT_ALIGN_CENTER);
+    }
+
+    void createEditor()
+    {
+        editorScreen = make_screen();
+        make_back_button(editorScreen, [](lv_event_t *) { requestEditorBack(); });
+        editorTitle = make_label(editorScreen, 110, 12, 300, 32, "",
+                                 &ui_font_Inter28, COLOR_TEXT,
+                                 LV_TEXT_ALIGN_LEFT);
+        editorStepLabel = make_label(editorScreen, 400, 18, 228, 18, "",
+                                     &ui_font_Inter15M, COLOR_MUTED,
+                                     LV_TEXT_ALIGN_RIGHT);
+
+        lv_obj_t *minusCard = make_card(editorScreen, 12, 57, 108, 100, true);
+        lv_obj_add_event_cb(minusCard, [](lv_event_t *) {
+            adjustEditor(-1);
+        }, LV_EVENT_CLICKED, NULL);
+        lv_obj_t *minusLine = lv_obj_create(minusCard);
+        lv_obj_remove_style_all(minusLine);
+        lv_obj_set_size(minusLine, 44, 5);
+        lv_obj_align(minusLine, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_set_style_bg_color(minusLine, lv_color_hex(COLOR_TEXT), 0);
+        lv_obj_set_style_bg_opa(minusLine, 255, 0);
+        lv_obj_set_style_radius(minusLine, 2, 0);
+        lv_obj_clear_flag(minusLine,
+                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+        lv_obj_t *valueCard = make_card(editorScreen, 130, 57, 264, 100);
+        editorFieldLabel = make_label(valueCard, 0, 8, 264, 16, "",
+                                      &ui_font_Inter15M, COLOR_MUTED,
+                                      LV_TEXT_ALIGN_CENTER);
+        editorValueLabel = make_label(valueCard, 0, 26, 264, 52, "",
+                                      &ui_font_Inter42, COLOR_TEXT,
+                                      LV_TEXT_ALIGN_CENTER);
+        editorSubLabel = make_label(valueCard, 0, 80, 264, 14, "",
+                                    &ui_font_Inter10M, COLOR_MUTED,
+                                    LV_TEXT_ALIGN_CENTER);
+        make_action_card(editorScreen, 408, 57, 108, 100, "+",
+                         &ui_font_Inter42, COLOR_CARD, 0, COLOR_TEXT,
+                         [](lv_event_t *) { adjustEditor(1); });
+        lv_obj_t *action = make_action_card(editorScreen, 528, 57, 100, 100,
+                                            "", &ui_font_Inter18,
+                                            COLOR_ACTION, COLOR_ACTION_EDGE,
+                                            COLOR_TEXT,
+                                            [](lv_event_t *) { editorNext(); });
+        editorActionLabel = lv_obj_get_child(action, 0);
+    }
+
+    void createReview()
+    {
+        reviewScreen = make_screen();
+        make_back_button(reviewScreen, [](lv_event_t *) { requestReviewBack(); });
+        reviewTitle = make_label(reviewScreen, 110, 12, 300, 32, "",
+                                 &ui_font_Inter28, COLOR_TEXT,
+                                 LV_TEXT_ALIGN_LEFT);
+        reviewStatus = make_label(reviewScreen, 400, 18, 228, 18, "",
+                                  &ui_font_Inter15M, COLOR_MUTED,
+                                  LV_TEXT_ALIGN_RIGHT);
+
+        lv_obj_t *card = make_card(reviewScreen, 12, 57, 416, 100);
+        reviewLabel = make_label(card, 12, 10, 200, 14, "",
+                                 &ui_font_Inter10M, COLOR_MUTED,
+                                 LV_TEXT_ALIGN_LEFT);
+        reviewValue = make_label(card, 12, 26, 390, 50, "",
+                                 &ui_font_Inter42, COLOR_TEXT,
+                                 LV_TEXT_ALIGN_LEFT);
+        reviewOldNew = make_label(card, 12, 78, 390, 18, "",
+                                  &ui_font_Inter18, COLOR_MUTED,
+                                  LV_TEXT_ALIGN_LEFT);
+
+        make_action_card(reviewScreen, 436, 57, 90, 100, "Cancel",
+                         &ui_font_Inter18, COLOR_CARD, 0, COLOR_TEXT,
+                         [](lv_event_t *) { reviewCancel(); });
+        make_action_card(reviewScreen, 528, 57, 100, 100, "Save",
+                         &ui_font_Inter18, COLOR_ACTION, COLOR_ACTION_EDGE,
+                         COLOR_TEXT, [](lv_event_t *) { reviewSave(); });
+    }
+
+    void style_location_roller(lv_obj_t *roller, lv_text_align_t align)
+    {
+        lv_obj_set_style_bg_opa(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_border_width(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_text_font(roller, &ui_font_Inter28, LV_PART_MAIN);
+        lv_obj_set_style_text_color(roller, lv_color_hex(0x7F8A99),
+                                    LV_PART_MAIN);
+        lv_obj_set_style_text_align(roller, align, LV_PART_MAIN);
+        lv_obj_set_style_text_line_space(roller, 0, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(roller, lv_color_hex(0x3A5A7A),
+                                  LV_PART_SELECTED);
+        lv_obj_set_style_bg_opa(roller, 255, LV_PART_SELECTED);
+        lv_obj_set_style_text_color(roller, lv_color_hex(COLOR_TEXT),
+                                    LV_PART_SELECTED);
+        lv_obj_set_style_radius(roller, 10, LV_PART_SELECTED);
+    }
+
+    void createLocation()
+    {
+        locationScreen = make_screen();
+        make_back_button(locationScreen, [](lv_event_t *) { requestLocationBack(); });
+        locationTitle = make_label(locationScreen, 110, 12, 300, 32,
+                                   "LOCATION", &ui_font_Inter28,
+                                   COLOR_TEXT, LV_TEXT_ALIGN_LEFT);
+        make_label(locationScreen, 420, 18, 208, 18, "CITY SETTINGS",
+                   &ui_font_Inter15M, COLOR_MUTED, LV_TEXT_ALIGN_RIGHT);
+
+        make_label(locationScreen, 14, 50, 100, 14, "INITIAL",
+                   &ui_font_Inter10M, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+        make_label(locationScreen, 160, 50, 100, 14, "CITY",
+                   &ui_font_Inter10M, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+
+        locationLetterRoller = lv_roller_create(locationScreen);
+        style_location_roller(locationLetterRoller, LV_TEXT_ALIGN_CENTER);
+        lv_obj_set_pos(locationLetterRoller, 14, 66);
+        lv_obj_set_width(locationLetterRoller, 130);
+        lv_roller_set_options(locationLetterRoller, locationLetterOptions,
+                              LV_ROLLER_MODE_NORMAL);
+        lv_roller_set_visible_row_count(locationLetterRoller, 3);
+        lv_obj_add_event_cb(locationLetterRoller, onLocationLetterChanged,
+                            LV_EVENT_VALUE_CHANGED, NULL);
+
+        locationCityRoller = lv_roller_create(locationScreen);
+        style_location_roller(locationCityRoller, LV_TEXT_ALIGN_LEFT);
+        lv_obj_set_pos(locationCityRoller, 160, 66);
+        lv_obj_set_width(locationCityRoller, 326);
+        lv_roller_set_options(locationCityRoller, "", LV_ROLLER_MODE_NORMAL);
+        lv_roller_set_visible_row_count(locationCityRoller, 3);
+        lv_obj_add_event_cb(locationCityRoller, onLocationCityChanged,
+                            LV_EVENT_VALUE_CHANGED, NULL);
+
+        locationReview = make_action_card(locationScreen, 498, 66, 128, 100,
+                                          "REVIEW\n>",
+                                          &ui_font_Inter18, COLOR_CARD, 0,
+                                          COLOR_TEXT, [](lv_event_t *) {
+                                              if (locationReviewEnabled) {
+                                                  showReview(REVIEW_LOCATION);
+                                              }
+                                          });
+    }
+
+    void createTick()
+    {
+        tickScreen = make_screen();
+        make_back_button(tickScreen, [](lv_event_t *) { requestTickBack(); });
+        tickTitle = make_label(tickScreen, 110, 12, 300, 32, "Tick sound",
+                               &ui_font_Inter28, COLOR_TEXT,
+                               LV_TEXT_ALIGN_LEFT);
+        make_label(tickScreen, 420, 18, 208, 18, "SETTINGS",
+                   &ui_font_Inter15M, COLOR_MUTED, LV_TEXT_ALIGN_RIGHT);
+
+        lv_obj_t *card = make_card(tickScreen, 12, 57, 300, 100);
+        make_label(card, 12, 10, 276, 14, "TICK AUDIO",
+                   &ui_font_Inter10M, COLOR_MUTED, LV_TEXT_ALIGN_LEFT);
+        tickStateLabel = make_label(card, 12, 26, 276, 50, "",
+                                    &ui_font_Inter42, COLOR_TEXT,
+                                    LV_TEXT_ALIGN_LEFT);
+        tickDetailLabel = make_label(card, 12, 78, 276, 18, "",
+                                     &ui_font_Inter18, COLOR_MUTED,
+                                     LV_TEXT_ALIGN_LEFT);
+
+        tickToggleCard = make_card(tickScreen, 320, 57, 150, 100, true);
+        lv_obj_set_style_border_width(tickToggleCard, 2, 0);
+        lv_obj_add_event_cb(tickToggleCard, [](lv_event_t *) {
+            draftTick = !draftTick;
+            Audio::setEnabled(draftTick, false);
+            previewActive = true;
+            refreshTick();
+        }, LV_EVENT_CLICKED, NULL);
+        tickToggleLabel = make_label(tickToggleCard, 0, 28, 150, 32, "",
+                                     &ui_font_Inter28, COLOR_TEXT,
+                                     LV_TEXT_ALIGN_CENTER);
+        tickToggleSub = make_label(tickToggleCard, 0, 64, 150, 18, "Preview",
+                                   &ui_font_Inter15M, COLOR_MUTED,
+                                   LV_TEXT_ALIGN_CENTER);
+
+        make_action_card(tickScreen, 480, 57, 148, 100, "Save",
+                         &ui_font_Inter28, COLOR_ACTION, COLOR_ACTION_EDGE,
+                         COLOR_TEXT, [](lv_event_t *) {
+                             Audio::setEnabled(draftTick, true);
+                             previewActive = false;
+                             SettingsStore::save();
+                             showOverview();
+                         });
+    }
+
+    void createDiscard()
+    {
+        discardScreen = make_screen();
+        make_label(discardScreen, 12, 8, 400, 32, "Discard changes?",
+                   &ui_font_Inter28, COLOR_TEXT, LV_TEXT_ALIGN_LEFT);
+        discardMessage = make_label(discardScreen, 12, 54, 400, 24, "",
+                                    &ui_font_Inter18, COLOR_MUTED,
+                                    LV_TEXT_ALIGN_LEFT);
+        make_action_card(discardScreen, 12, 92, 300, 64, "Keep editing",
+                         &ui_font_Inter18, COLOR_CARD, 0, COLOR_TEXT,
+                         [](lv_event_t *) { discardKeep(); });
+        make_action_card(discardScreen, 328, 92, 300, 64, "Discard",
+                         &ui_font_Inter18, 0x5A3038, 0xB06A8A, COLOR_TEXT,
+                         [](lv_event_t *) { discardConfirm(); });
+    }
 }
 
 namespace Settings
 {
     void begin()
     {
-        if (settingsScreen) return;
+        if (overviewScreen) return;
 
-        settingsScreen = lv_obj_create(NULL);
-        lv_obj_clear_flag(settingsScreen, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_bg_color(settingsScreen, lv_color_hex(0x000000), 0);
-        lv_obj_set_style_bg_opa(settingsScreen, 255, 0);
-        make_label(settingsScreen, 12, 5, 120, 22, "Settings",
-                   &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        /* Transparent touch guard around the header controls.  A finger that
-         * starts in this band is treated as adjusting BRIGHT/TICK, not as a
-         * swipe back to the clock.  The slider/switch are created afterwards
-         * and stay on top, so they still receive their own touches. */
-        lv_obj_t *headerGuard = lv_obj_create(settingsScreen);
-        lv_obj_remove_style_all(headerGuard);
-        lv_obj_set_pos(headerGuard, 190, 0);
-        lv_obj_set_size(headerGuard, 230, 48);
-        lv_obj_add_flag(headerGuard, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_clear_flag(headerGuard, LV_OBJ_FLAG_SCROLLABLE);
-        guard_control(headerGuard);
+        createOverview();
+        createChoice();
+        createEditor();
+        createReview();
+        createLocation();
+        createTick();
+        createDiscard();
 
-        make_label(settingsScreen, 140, 8, 58, 16, "BRIGHT",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-
-        brightnessSlider = lv_slider_create(settingsScreen);
-        lv_obj_set_pos(brightnessSlider, 200, 9);
-        lv_obj_set_size(brightnessSlider, 80, 14);
-        lv_slider_set_range(brightnessSlider, 40, 100);
-        lv_slider_set_value(brightnessSlider, Brightness::current(), LV_ANIM_OFF);
-        lv_obj_set_ext_click_area(brightnessSlider, 10);
-        lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0x333333),
-                                  LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_MAIN);
-        lv_obj_set_style_radius(brightnessSlider, 7, LV_PART_MAIN);
-        lv_obj_set_style_border_width(brightnessSlider, 0, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0xBBBBBB),
-                                  LV_PART_INDICATOR);
-        lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_INDICATOR);
-        lv_obj_set_style_radius(brightnessSlider, 7, LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(brightnessSlider, lv_color_hex(0xFFFFFF),
-                                  LV_PART_KNOB);
-        lv_obj_set_style_bg_opa(brightnessSlider, 255, LV_PART_KNOB);
-        lv_obj_set_style_pad_all(brightnessSlider, 0, LV_PART_KNOB);
-        lv_obj_set_style_radius(brightnessSlider, LV_RADIUS_CIRCLE,
-                                LV_PART_KNOB);
-        guard_control(brightnessSlider);
-        lv_obj_add_event_cb(brightnessSlider, [](lv_event_t *event) {
-            lv_obj_t *slider = lv_event_get_target(event);
-            int value = lv_slider_get_value(slider);
-            Brightness::set(value);
-            char text[8];
-            snprintf(text, sizeof(text), "%d%%", Brightness::current());
-            lv_label_set_text(brightnessValueLabel, text);
-        }, LV_EVENT_VALUE_CHANGED, NULL);
-
-        brightnessValueLabel = make_label(settingsScreen, 284, 8, 36, 16, "100%",
-                                          &ui_font_Inter10M, 0xCCCCCC,
-                                          LV_TEXT_ALIGN_RIGHT);
-
-        make_label(settingsScreen, 328, 8, 30, 16, "TICK",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-        tickSwitch = lv_switch_create(settingsScreen);
-        lv_obj_set_pos(tickSwitch, 362, 7);
-        lv_obj_set_size(tickSwitch, 36, 18);
-        lv_obj_set_ext_click_area(tickSwitch, 8);
-        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0x333333),
-                                  LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0xBBBBBB),
-                                  LV_PART_INDICATOR);
-        lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0xBBBBBB),
-                                  LV_PART_INDICATOR | LV_STATE_CHECKED);
-        lv_obj_set_style_bg_opa(tickSwitch, 255,
-                                LV_PART_INDICATOR | LV_STATE_CHECKED);
-        lv_obj_set_style_bg_color(tickSwitch, lv_color_hex(0xFFFFFF),
-                                  LV_PART_KNOB);
-        lv_obj_set_style_bg_opa(tickSwitch, 255, LV_PART_KNOB);
-        lv_obj_set_style_pad_all(tickSwitch, 0, LV_PART_KNOB);
-        if (Audio::enabled()) {
-            lv_obj_add_state(tickSwitch, LV_STATE_CHECKED);
-        }
-        guard_control(tickSwitch);
-        lv_obj_add_event_cb(tickSwitch, [](lv_event_t *event) {
-            bool on = lv_obj_has_state(lv_event_get_target(event),
-                                       LV_STATE_CHECKED);
-            Audio::setEnabled(on);
-            SettingsStore::save();
-        }, LV_EVENT_VALUE_CHANGED, NULL);
-
-        make_label(settingsScreen, 410, 8, 218, 16, "Swipe left column to return",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_RIGHT);
-
-        lv_obj_t *headerLine = lv_obj_create(settingsScreen);
-        lv_obj_remove_style_all(headerLine);
-        lv_obj_set_pos(headerLine, 12, 29);
-        lv_obj_set_size(headerLine, 616, 1);
-        lv_obj_set_style_bg_color(headerLine, lv_color_hex(0x444444), 0);
-        lv_obj_set_style_bg_opa(headerLine, 255, 0);
-        lv_obj_clear_flag(headerLine, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-        /* Battery card. */
-        lv_obj_t *batteryPanel = make_panel(settingsScreen, 12, 36, 164, 130);
-        make_label(batteryPanel, 8, 6, 140, 14, "BATTERY",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-
-        batteryDigits = make_label(batteryPanel, 8, 20, 118, 68, "0",
-                                   &ui_font_Inter66, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        batteryUnit = make_label(batteryPanel, 126, 62, 24, 24, "%",
-                                 &ui_font_Inter18, 0xAAAAAA, LV_TEXT_ALIGN_LEFT);
-
-        lv_obj_t *batteryBar = lv_obj_create(batteryPanel);
-        lv_obj_remove_style_all(batteryBar);
-        lv_obj_set_pos(batteryBar, 8, 86);
-        lv_obj_set_size(batteryBar, 148, 8);
-        lv_obj_set_style_bg_color(batteryBar, lv_color_hex(0x222222), 0);
-        lv_obj_set_style_bg_opa(batteryBar, 255, 0);
-        lv_obj_set_style_radius(batteryBar, 4, 0);
-        lv_obj_clear_flag(batteryBar, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-        batteryLevel = lv_obj_create(batteryPanel);
-        lv_obj_remove_style_all(batteryLevel);
-        lv_obj_set_pos(batteryLevel, 8, 86);
-        lv_obj_set_size(batteryLevel, 0, 8);
-        lv_obj_set_style_bg_color(batteryLevel, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_set_style_bg_opa(batteryLevel, 255, 0);
-        lv_obj_set_style_radius(batteryLevel, 4, 0);
-        lv_obj_clear_flag(batteryLevel, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-        batteryVolt = make_label(batteryPanel, 8, 98, 148, 14, "--",
-                                 &ui_font_Inter11R, 0xAAAAAA, LV_TEXT_ALIGN_LEFT);
-        batteryStatus = make_label(batteryPanel, 8, 112, 148, 12, "",
-                                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
-
-        /* Date/time card. */
-        lv_obj_t *timePanel = make_panel(settingsScreen, 184, 36, 258, 130);
-
-        make_label(timePanel, 10, 4, 60, 14, "DATE",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-        make_label(timePanel, 10, 50, 60, 14, "TIME",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-
-        make_field(timePanel, 10, 18, 58, 28, FIELD_YEAR);
-        make_label(timePanel, 68, 18, 10, 28, "-",
-                   &ui_font_Inter18, 0x666666, LV_TEXT_ALIGN_CENTER);
-        make_field(timePanel, 78, 18, 36, 28, FIELD_MONTH);
-        make_label(timePanel, 114, 18, 10, 28, "-",
-                   &ui_font_Inter18, 0x666666, LV_TEXT_ALIGN_CENTER);
-        make_field(timePanel, 124, 18, 36, 28, FIELD_DAY);
-
-        make_field(timePanel, 10, 62, 38, 28, FIELD_HOUR);
-        make_label(timePanel, 48, 62, 10, 28, ":",
-                   &ui_font_Inter18, 0x666666, LV_TEXT_ALIGN_CENTER);
-        make_field(timePanel, 58, 62, 38, 28, FIELD_MINUTE);
-        make_label(timePanel, 96, 62, 10, 28, ":",
-                   &ui_font_Inter18, 0x666666, LV_TEXT_ALIGN_CENTER);
-        make_field(timePanel, 106, 62, 38, 28, FIELD_SECOND);
-        updateFieldSelection();
-
-        make_button(timePanel, 10, 96, 42, 24, "-",
-                    &ui_font_Inter18, [](lv_event_t *) { adjustSelected(-1); }, NULL);
-        make_button(timePanel, 58, 96, 42, 24, "+",
-                    &ui_font_Inter18, [](lv_event_t *) { adjustSelected(1); }, NULL);
-        make_label(timePanel, 110, 99, 138, 18, "Tap field, then -/+",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-
-        /* Location card: current city + quick cities + full picker. */
-        lv_obj_t *locationPanel = make_panel(settingsScreen, 450, 36, 178, 130);
-        make_label(locationPanel, 8, 6, 72, 14, "LOCATION",
-                   &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
-        locationOffsetLabel = make_label(locationPanel, 86, 6, 84, 14, "",
-                                         &ui_font_Inter10M, 0x888888,
-                                         LV_TEXT_ALIGN_RIGHT);
-
-        locationCurrentLabel = make_label(locationPanel, 8, 20, 160, 18, "",
-                                          &ui_font_Inter15SB, 0xFFFFFF,
-                                          LV_TEXT_ALIGN_LEFT);
-        lv_obj_add_flag(locationCurrentLabel, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(locationCurrentLabel, [](lv_event_t *) {
-            Settings::showLocationPicker();
-        }, LV_EVENT_CLICKED, NULL);
-
-        const int quickX[2] = {8, 92};
-        const int quickY[3] = {40, 61, 82};
-        for (int i = 0; i < 6; i++) {
-            const int index = i;
-            locationQuickIndex[i] = index;
-            locationQuickButton[i] = make_button(
-                locationPanel, quickX[i % 2], quickY[i / 2], 78, 20,
-                Location::at(index).name, &ui_font_Inter11R,
-                [](lv_event_t *event) {
-                    Settings::selectLocation(
-                        (int)(intptr_t)lv_event_get_user_data(event));
-                }, (void *)(intptr_t)index);
-        }
-        make_button(locationPanel, 8, 104, 160, 22,
-                    "All cities", &ui_font_Inter11R,
-                    [](lv_event_t *) { Settings::showLocationPicker(); }, NULL);
-
-        /* Full-screen city picker, opened from the Location card. */
-        locationScreen = lv_obj_create(NULL);
-        lv_obj_clear_flag(locationScreen, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_bg_color(locationScreen, lv_color_hex(0x000000), 0);
-        lv_obj_set_style_bg_opa(locationScreen, 255, 0);
-
-        make_label(locationScreen, 12, 4, 100, 24, "LOCATION",
-                   &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
-        locationPickerCityLabel = make_label(locationScreen, 120, 5, 500, 22,
-                                              "", &ui_font_Inter15M,
-                                              0xCCCCCC, LV_TEXT_ALIGN_LEFT);
-
-        lv_obj_t *locationHeaderLine = lv_obj_create(locationScreen);
-        lv_obj_remove_style_all(locationHeaderLine);
-        lv_obj_set_pos(locationHeaderLine, 12, 34);
-        lv_obj_set_size(locationHeaderLine, 616, 1);
-        lv_obj_set_style_bg_color(locationHeaderLine, lv_color_hex(0x444444), 0);
-        lv_obj_set_style_bg_opa(locationHeaderLine, 255, 0);
-        lv_obj_clear_flag(locationHeaderLine,
-                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-        make_label(locationScreen, 12, 36, 96, 10, "A-Z",
-                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
-        make_label(locationScreen, 120, 36, 200, 10, "CITIES",
-                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
-        make_label(locationScreen, 542, 36, 86, 10, "ACTION",
-                   &ui_font_Inter10M, 0x777777, LV_TEXT_ALIGN_LEFT);
-
-        lv_obj_t *locationDivider = lv_obj_create(locationScreen);
-        lv_obj_remove_style_all(locationDivider);
-        lv_obj_set_pos(locationDivider, 112, 48);
-        lv_obj_set_size(locationDivider, 1, 108);
-        lv_obj_set_style_bg_color(locationDivider, lv_color_hex(0x333333), 0);
-        lv_obj_set_style_bg_opa(locationDivider, 255, 0);
-        lv_obj_clear_flag(locationDivider,
-                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-        lv_obj_t *locationActionDivider = lv_obj_create(locationScreen);
-        lv_obj_remove_style_all(locationActionDivider);
-        lv_obj_set_pos(locationActionDivider, 530, 48);
-        lv_obj_set_size(locationActionDivider, 1, 108);
-        lv_obj_set_style_bg_color(locationActionDivider,
-                                  lv_color_hex(0x333333), 0);
-        lv_obj_set_style_bg_opa(locationActionDivider, 255, 0);
-        lv_obj_clear_flag(locationActionDivider,
-                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
-
-        locationLetterRoller = lv_roller_create(locationScreen);
-        styleLocationRoller(locationLetterRoller, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_pos(locationLetterRoller, 12, 48);
-        lv_obj_set_width(locationLetterRoller, 96);
-        lv_roller_set_options(locationLetterRoller, locationLetterOptions,
-                              LV_ROLLER_MODE_NORMAL);
-        lv_roller_set_visible_row_count(locationLetterRoller, 6);
-        lv_obj_add_event_cb(locationLetterRoller, onLocationLetterChanged,
-                            LV_EVENT_VALUE_CHANGED, NULL);
-
-        locationCityRoller = lv_roller_create(locationScreen);
-        styleLocationRoller(locationCityRoller, LV_TEXT_ALIGN_LEFT, 14);
-        lv_obj_set_pos(locationCityRoller, 120, 48);
-        lv_obj_set_width(locationCityRoller, 406);
-        lv_roller_set_options(locationCityRoller, "", LV_ROLLER_MODE_NORMAL);
-        lv_roller_set_visible_row_count(locationCityRoller, 6);
-        lv_obj_add_event_cb(locationCityRoller, onLocationCityChanged,
-                            LV_EVENT_VALUE_CHANGED, NULL);
-
-        make_button(locationScreen, 542, 66, 86, 32, "Cancel",
-                    &ui_font_Inter11R, [](lv_event_t *) {
-                        Settings::hideLocationPicker();
-                    }, NULL);
-        make_button(locationScreen, 542, 106, 86, 32, "Apply",
-                    &ui_font_Inter11R, [](lv_event_t *) {
-                        Settings::selectLocation(pendingLocationIndex);
-                        Settings::hideLocationPicker();
-                    }, NULL);
-
-        /* Tap the location pill as a discoverable alternative to swiping. */
         lv_obj_add_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(ui_Screen1_Panel_border, [](lv_event_t *) {
             Settings::show();
         }, LV_EVENT_CLICKED, NULL);
 
-        refreshAll();
+        refreshOverview();
     }
 
     void update()
     {
-        if (!openFlag || locationOpen) return;
+        if (!openFlag || currentPage != PAGE_OVERVIEW) return;
 
-        unsigned long nowMs = millis();
-        if (nowMs - lastUiRefreshMs >= 250) {
-            refreshDateTime();
-            refreshBattery();
-            refreshBrightnessControl();
-            lastUiRefreshMs = nowMs;
+        unsigned long now = millis();
+        if (now - lastRefreshMs >= 250) {
+            refreshOverview();
+            lastRefreshMs = now;
         }
-
-        if (nowMs - lastOffsetRefreshMs >= 60000UL) {
-            refreshLocation();
-            lastOffsetRefreshMs = nowMs;
-        }
-
-    }
-
-    static lv_scr_load_anim_t swipeAnimation(int swipeDx,
-                                              lv_scr_load_anim_t fallback)
-    {
-        if (swipeDx < 0) return LV_SCR_LOAD_ANIM_MOVE_LEFT;
-        if (swipeDx > 0) return LV_SCR_LOAD_ANIM_MOVE_RIGHT;
-        return fallback;
     }
 
     void show(int swipeDx)
     {
-        if (!settingsScreen || openFlag) return;
+        if (!overviewScreen || openFlag) return;
         openFlag = true;
-        locationOpen = false;
-        refreshAll();
-        lv_scr_load_anim(settingsScreen,
-                         swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_LEFT),
+        currentPage = PAGE_OVERVIEW;
+        refreshOverview();
+        lv_scr_load_anim(overviewScreen,
+                         swipeDx < 0 ? LV_SCR_LOAD_ANIM_MOVE_LEFT :
+                         swipeDx > 0 ? LV_SCR_LOAD_ANIM_MOVE_RIGHT :
+                         LV_SCR_LOAD_ANIM_MOVE_LEFT,
                          150, 0, false);
     }
 
     void hide(int swipeDx)
     {
-        if (!settingsScreen || !openFlag) return;
+        if (!openFlag) return;
+
+        if (previewActive) {
+            if ((currentPage == PAGE_EDITOR &&
+                 editorMode == EDIT_BRIGHTNESS) ||
+                (currentPage == PAGE_DISCARD &&
+                 discardSource == PAGE_EDITOR &&
+                 editorMode == EDIT_BRIGHTNESS)) {
+                Brightness::set(originalBrightness);
+            }
+            if (currentPage == PAGE_TICK ||
+                (currentPage == PAGE_DISCARD &&
+                 discardSource == PAGE_TICK)) {
+                Audio::setEnabled(originalTick, false);
+            }
+            previewActive = false;
+        }
+
         openFlag = false;
-        locationOpen = false;
-        SettingsStore::save();
+        currentPage = PAGE_OVERVIEW;
         lv_scr_load_anim(ui_Screen1,
-                         swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_RIGHT),
+                         swipeDx < 0 ? LV_SCR_LOAD_ANIM_MOVE_LEFT :
+                         swipeDx > 0 ? LV_SCR_LOAD_ANIM_MOVE_RIGHT :
+                         LV_SCR_LOAD_ANIM_MOVE_RIGHT,
                          150, 0, false);
         MoonIntro::play();
     }
@@ -922,83 +1303,148 @@ namespace Settings
         return openFlag;
     }
 
-    void showLocationPicker()
+    bool swipeBlocked()
     {
-        if (!locationScreen || locationOpen) return;
-
-        locationOpen = true;
-        pendingLocationIndex = Location::index();
-
-        char initial = locationInitial(pendingLocationIndex);
-        if (initial >= 'A' && initial <= 'Z') {
-            locationLetterFilter = initial - 'A';
-        } else {
-            locationLetterFilter = -1;
-        }
-
-        refreshLocationPicker();
-        lv_scr_load_anim(locationScreen,
-                         LV_SCR_LOAD_ANIM_MOVE_LEFT, 150, 0, false);
+        return openFlag && currentPage != PAGE_OVERVIEW;
     }
 
-    void hideLocationPicker(int swipeDx)
+    bool isPreviewActive()
     {
-        if (!locationOpen) return;
+        return previewActive;
+    }
 
-        locationOpen = false;
-        refreshAll();
-        lv_scr_load_anim(settingsScreen,
-                         swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_RIGHT),
-                         150, 0, false);
+    void showLocationPicker()
+    {
+        if (!openFlag) return;
+        showLocationPage(true);
+    }
+
+    void hideLocationPicker(int)
+    {
+        if (currentPage == PAGE_LOCATION) showOverview();
     }
 
     bool isLocationPickerOpen()
     {
-        return locationOpen;
+        return currentPage == PAGE_LOCATION;
     }
 
-    bool swipeBlocked()
+    void showDateTimePicker()
     {
-        if (controlTouchActive) return true;
+        if (!openFlag) return;
+        showChoice(CHOICE_DATETIME);
+    }
 
-        if (controlGestureLock) {
-            /* Keep the lock for the rest of the physical touch, even if the
-             * slider sends PRESS_LOST when the finger leaves its bounds. */
-            if (Display::TouchDown) return true;
-            if (controlTouchReleasedMs != 0 &&
-                (millis() - controlTouchReleasedMs) < 300) {
-                return true;
-            }
-            controlGestureLock = false;
+    void hideDateTimePicker(bool)
+    {
+        if (currentPage == PAGE_CHOICE && choiceMode == CHOICE_DATETIME) {
+            showOverview();
         }
-        return false;
+    }
+
+    bool isDateTimePickerOpen()
+    {
+        return currentPage == PAGE_CHOICE && choiceMode == CHOICE_DATETIME;
     }
 
     void adjustField(int field, int delta)
     {
-        if (field < 0 || field >= FIELD_COUNT) return;
-        selectedField = field;
-        updateFieldSelection();
-        adjustSelected(delta);
+        Clock::DateTime dt = Clock::now();
+
+        switch (field) {
+        case 0:
+            dt.year += delta;
+            if (dt.year < 2020) dt.year = 2020;
+            if (dt.year > 2069) dt.year = 2069;
+            break;
+        case 1:
+            dt.month += delta;
+            if (dt.month < 1) dt.month = 12;
+            if (dt.month > 12) dt.month = 1;
+            break;
+        case 2:
+            dt.day += delta;
+            if (dt.day < 1) dt.day = 1;
+            if (dt.day > Clock::daysInMonth(dt.year, dt.month)) {
+                dt.day = Clock::daysInMonth(dt.year, dt.month);
+            }
+            break;
+        case 3:
+            dt.hour = (dt.hour + delta + 24) % 24;
+            break;
+        case 4:
+            dt.minute = (dt.minute + delta + 60) % 60;
+            break;
+        case 5:
+            dt.second = (dt.second + delta + 60) % 60;
+            break;
+        default:
+            return;
+        }
+
+        if (dt.day > Clock::daysInMonth(dt.year, dt.month)) {
+            dt.day = Clock::daysInMonth(dt.year, dt.month);
+        }
+
+        if (Clock::setDateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                               dt.second)) {
+            SettingsStore::save();
+            Astronomy::update(true);
+            if (openFlag) refreshOverview();
+        }
     }
 
     void selectLocation(int index)
     {
-        if (index < 0 || index >= Location::count()) return;
-        if (index == Location::index()) return;
+        if (applyLocation(index) && openFlag) {
+            refreshOverview();
+        }
+    }
 
-        Clock::DateTime now = Clock::now();
-        int oldOffset = Location::offsetForDate(now.year, now.month, now.day);
-        time_t utc = Clock::localEpoch() - (time_t)oldOffset;
+    void debugOpen(int page)
+    {
+        if (!openFlag) return;
 
-        if (!Location::setIndex(index)) return;
-
-        pendingLocationIndex = index;
-        int newOffset = Location::offsetForUtc(utc);
-        Clock::setFromUtc(utc, newOffset);
-        SettingsStore::save();
-        Astronomy::update(true);
-
-        if (openFlag) refreshAll();
+        switch (page) {
+        case 0:
+            showOverview();
+            break;
+        case 1:
+            showChoice(CHOICE_DATETIME);
+            break;
+        case 2:
+            editorMode = EDIT_TIME;
+            editStep = STEP_HOUR;
+            showEditorPage(true);
+            break;
+        case 3:
+            editorMode = EDIT_DATE;
+            editStep = STEP_YEAR;
+            showEditorPage(true);
+            break;
+        case 4: {
+            Clock::DateTime now = Clock::now();
+            draftDateTime = now;
+            originalDateTime = now;
+            showReview(REVIEW_TIME);
+            break;
+        }
+        case 5:
+            showChoice(CHOICE_DISPLAY);
+            break;
+        case 6:
+            editorMode = EDIT_BRIGHTNESS;
+            editStep = STEP_BRIGHTNESS;
+            showEditorPage(true);
+            break;
+        case 7:
+            showTickPage(true);
+            break;
+        case 8:
+            showLocationPage(true);
+            break;
+        default:
+            break;
+        }
     }
 }

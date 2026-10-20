@@ -83,6 +83,8 @@ LV_IMG_DECLARE( ui_img_moon_phase_moon_9_png);   // assets/Moon_Phase/Moon_9.png
 LV_FONT_DECLARE( ui_font_SG28);
 LV_FONT_DECLARE( ui_font_SG50);
 LV_FONT_DECLARE( ui_font_Inter66);
+LV_FONT_DECLARE( ui_font_Inter42);
+LV_FONT_DECLARE( ui_font_Inter28);
 LV_FONT_DECLARE( ui_font_FA14);
 LV_FONT_DECLARE( ui_font_Inter18);
 LV_FONT_DECLARE( ui_font_Inter15M);

@@ -120,7 +120,7 @@ namespace Audio
         lastTickMs = millis();
     }
 
-    void setEnabled(bool enabled)
+    void setEnabled(bool enabled, bool persist)
     {
         soundEnabled = enabled;
         if (!enabled) {
@@ -128,7 +128,7 @@ namespace Audio
             soundMuted = true;
             audioTail = audioHead;
         }
-        saveEnabled();
+        if (persist) saveEnabled();
     }
 
     bool enabled()

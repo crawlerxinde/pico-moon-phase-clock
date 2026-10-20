@@ -129,38 +129,38 @@ On the clock face:
   in the left column returns from Settings,
 * or tap the location pill to open Settings.
 
-The left column (`x < 180`) is the dedicated page-swipe zone.  It covers the
-moon tile on the clock page and the battery card on the Settings page, so page
-navigation never competes with the brightness slider, TICK switch or date/time
-fields.
+The left column (`x < 180`) is the dedicated page-swipe zone.  On the clock
+page it opens Settings; a left-column swipe from the Settings overview returns
+to the clock.  Editor pages use a large `Back` button instead, so an accidental
+swipe cannot discard a draft.
 
-The Settings page contains:
+The Settings overview contains three full-card entries:
 
-* **Battery**: voltage on GPIO40/ADC0 (3:1 divider), percentage and bar.
-  With USB power and no 18650 installed the page shows `USB / No battery`.
-* **Brightness**: slider at the top of Settings (40–100%); it shares the same
-  value as the clock-page vertical swipe and the serial `B` command.
-* **TICK**: switch next to the brightness slider.  It enables the per-second
-  ticking sound (same PCM samples as the reference pico-clock project) and
-  stores the setting in EEPROM.
-* **Date & time**: tap a field (year, month, day, hour, minute or second),
-  then use `-` / `+` to adjust it.  Every change is written to the RTC
-  immediately.  Invalid dates such as 31 February are rejected.
-* **Location**: the card shows the current city, a 6-city quick grid and a
-  full-width `All cities` button.  Tapping a quick city applies it immediately; `All
-  cities` opens a full-screen picker with an A-Z filter, two-column list and
-  explicit `Cancel` / `Apply` actions in a separate right-hand column.  The
-  picker uses two default LVGL rollers: the left roller selects `All` or a
-  letter A-Z, and the right roller immediately shows only cities for that
-  letter.  It defaults to the current city's first letter, and the right roller
-  highlights the pending city until Apply is pressed.  The selection is stored in EEPROM.  Each city has its own
-  coordinates and timezone/DST rule (EU, US, Australia, New Zealand and Chile
-  rules are supported).  Changing city preserves the absolute UTC instant,
-  rewrites the RTC in the new local time, updates the location pill and
-  recalculates sunrise/sunset/moonrise/moonset.
-  The city coordinates/timezones are derived from the public city-timezones
-  dataset and IANA tzdata; the generated table is in
+* **Date & Time**: opens a choice page for `Set time` or `Set date`.  Time is
+  edited in hour and minute steps; date is edited in year, month and day steps.
+  Each step uses large `−` / `+` controls and `Next`; the final step opens a
+  review page with old and new values and explicit `Cancel` / `Save` actions.
+  Seconds remain part of the clock and are shown as a small suffix on the
+  overview card.  The day is clamped to the number of days in the selected
+  month/year, so 31 February cannot be saved.
+* **Location**: opens the dual-roller picker.  The left roller selects `A-Z`;
+  the right roller immediately shows only cities for that letter.  Changes are
+  draft-only until `Review` and then `Save`.  Saving preserves the absolute UTC
+  instant and rewrites the RTC in the new city's local time.  Each city has its
+  own coordinates and timezone/DST rule (EU, US, Australia, New Zealand, Chile
+  and Egypt rules are supported).  The generated table is in
   `PIO/src/location_data.h`.
+* **Display**: opens a choice page for `Brightness` and `Tick sound`.
+  Brightness uses `−` / `+` in 5% steps (clamped to 40–100% so the panel stays
+  readable) with a live preview and `Save`; leaving without saving restores the
+  previous brightness.  Tick sound has a large
+  `Mute` / `Unmute` preview button and `Save`; leaving without saving restores
+  the previous sound state.
+
+The top-right `BAT … | …%` label is read-only: it shows battery state (or
+`USB`) and the current brightness.  The battery is measured on GPIO40/ADC0
+through the board's 3:1 divider.  With USB power and no 18650 installed the
+label shows `BAT USB`.
 
 The default city still comes from `PIO/src/credential.h`; the EEPROM selection
 overrides it after the first change.
@@ -192,6 +192,8 @@ Serial commands (115200 baud):
 | `T YYYY-MM-DD HH:MM:SS` | set the RTC (local time) |
 | `G` | open/close the Settings page |
 | `W` | open/close the city picker (Settings must be open) |
+| `J` | open/close the date/time picker (Settings must be open) |
+| `Z N` | debug Settings page 0..8 (Settings must be open) |
 | `L` | list locations; `L 0..5` select a city |
 | `K FIELD DELTA` | adjust date/time field (0=year .. 5=second), for diagnostics |
 | `A` | print battery voltage and percentage |

@@ -10,7 +10,7 @@
 #define CAL_X       270
 #define CAL_Y       0
 #define CAL_W       180
-#define CAL_H       119
+#define CAL_H       123
 #define CAL_CELL_W  25
 #define CAL_DAY_Y   47
 #define CAL_ROW_H   14
@@ -119,7 +119,7 @@ void Calendar_Init(lv_obj_t *parent)
         cal_days[i] = day;
     }
 
-    cal_line(cal_root, 0, 118, CAL_W, 1);
+    cal_line(cal_root, 0, 121, CAL_W, 1);
 }
 
 void Calendar_Update(int year, int month, int day)
