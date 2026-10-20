@@ -45,9 +45,18 @@ namespace
     lv_obj_t *brightnessValueLabel = nullptr;
     lv_obj_t *tickSwitch = nullptr;
 
+    lv_obj_t *locationScreen = nullptr;
     lv_obj_t *locationList = nullptr;
     lv_obj_t *locationRow[256] = {nullptr};
     lv_obj_t *locationOffsetLabel = nullptr;
+    lv_obj_t *locationCurrentLabel = nullptr;
+    lv_obj_t *locationQuickButton[5] = {nullptr};
+    int       locationQuickIndex[5] = {0, 1, 2, 3, 4};
+    lv_obj_t *locationPickerCityLabel = nullptr;
+    lv_obj_t *locationLetterButton[27] = {nullptr};
+    int       locationLetterFilter = -1;
+    int       pendingLocationIndex = 0;
+    bool      locationOpen = false;
 
     int selectedField = FIELD_MINUTE;
     bool openFlag = false;
@@ -263,17 +272,131 @@ namespace
         lv_label_set_text(locationOffsetLabel, offset);
     }
 
+    char locationInitial(int index)
+    {
+        const char *name = Location::at(index).name;
+        if (!name || !name[0]) return '\0';
+        char c = name[0];
+        if (c >= 'a' && c <= 'z') c -= 32;
+        return c;
+    }
+
+    bool locationMatchesFilter(int index)
+    {
+        if (locationLetterFilter < 0) return true;
+        return locationInitial(index) == (char)('A' + locationLetterFilter);
+    }
+
+    void updateLocationPickerSummary(int index)
+    {
+        if (!locationPickerCityLabel) return;
+
+        Clock::DateTime dt = Clock::now();
+        char offset[12];
+        formatOffset(Location::offsetForIndex(index, dt.year, dt.month, dt.day),
+                     offset, sizeof(offset));
+
+        char text[64];
+        snprintf(text, sizeof(text), "%s  %s",
+                 Location::at(index).name, offset);
+        lv_label_set_text(locationPickerCityLabel, text);
+    }
+
+    void updateLocationRowStyles()
+    {
+        for (int i = 0; i < Location::count() && i < 256; i++) {
+            if (!locationRow[i]) continue;
+            bool selected = (i == pendingLocationIndex);
+            lv_obj_set_style_bg_opa(locationRow[i], selected ? 255 : 0, 0);
+            lv_obj_set_style_bg_color(locationRow[i],
+                                      lv_color_hex(0x333333), 0);
+            lv_obj_set_style_text_color(
+                locationRow[i],
+                lv_color_hex(selected ? 0xFFFFFF : 0xCCCCCC), 0);
+        }
+    }
+
+    void updateLocationFilterStyles()
+    {
+        for (int i = 0; i < 27; i++) {
+            if (!locationLetterButton[i]) continue;
+            bool selected = (i - 1 == locationLetterFilter);
+            lv_obj_set_style_bg_color(
+                locationLetterButton[i],
+                lv_color_hex(selected ? 0x444444 : 0x1A1A1A), 0);
+            lv_obj_set_style_border_color(
+                locationLetterButton[i],
+                lv_color_hex(selected ? 0x888888 : 0x555555), 0);
+
+            lv_obj_t *label = lv_obj_get_child(locationLetterButton[i], 0);
+            if (label) {
+                lv_obj_set_style_text_color(
+                    label, lv_color_hex(selected ? 0xFFFFFF : 0xAAAAAA), 0);
+            }
+        }
+    }
+
+    void layoutLocationRows()
+    {
+        int visible = 0;
+        for (int i = 0; i < Location::count() && i < 256; i++) {
+            if (!locationRow[i]) continue;
+            if (locationMatchesFilter(i)) {
+                int col = visible % 2;
+                int row = visible / 2;
+                lv_obj_set_pos(locationRow[i], col * 304, row * 21);
+                lv_obj_set_size(locationRow[i], 300, 20);
+                lv_obj_clear_flag(locationRow[i], LV_OBJ_FLAG_HIDDEN);
+                visible++;
+            } else {
+                lv_obj_add_flag(locationRow[i], LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+        updateLocationRowStyles();
+    }
+
+    void refreshLocationPicker()
+    {
+        if (!locationList) return;
+
+        updateLocationPickerSummary(pendingLocationIndex);
+        updateLocationFilterStyles();
+        layoutLocationRows();
+
+        if (pendingLocationIndex >= 0 &&
+            pendingLocationIndex < Location::count() &&
+            locationMatchesFilter(pendingLocationIndex) &&
+            locationRow[pendingLocationIndex]) {
+            lv_obj_scroll_to_view(locationRow[pendingLocationIndex],
+                                  LV_ANIM_OFF);
+        } else {
+            lv_obj_scroll_to_y(locationList, 0, LV_ANIM_OFF);
+        }
+    }
+
+    void refreshSettingsLocation()
+    {
+        if (!locationCurrentLabel) return;
+
+        lv_label_set_text(locationCurrentLabel, Location::city());
+        updateLocationOffset(Location::index());
+
+        for (int i = 0; i < 5; i++) {
+            if (!locationQuickButton[i]) continue;
+            bool selected = (locationQuickIndex[i] == Location::index());
+            lv_obj_set_style_bg_color(
+                locationQuickButton[i],
+                lv_color_hex(selected ? 0x333333 : 0x1A1A1A), 0);
+            lv_obj_set_style_border_color(
+                locationQuickButton[i],
+                lv_color_hex(selected ? 0x888888 : 0x555555), 0);
+        }
+    }
+
     void refreshLocation()
     {
-        int current = Location::index();
-        for (int i = 0; i < Location::count() && i < 256; i++) {
-            bool selected = (i == current);
-            lv_obj_set_style_bg_opa(locationRow[i], selected ? 255 : 0, 0);
-            lv_obj_set_style_bg_color(locationRow[i], lv_color_hex(0x333333), 0);
-            lv_obj_set_style_text_color(locationRow[i],
-                                        lv_color_hex(selected ? 0xFFFFFF : 0xCCCCCC), 0);
-        }
-        updateLocationOffset(current);
+        refreshSettingsLocation();
+        if (locationOpen) refreshLocationPicker();
     }
 
     void refreshBrightnessControl()
@@ -294,12 +417,6 @@ namespace
         refreshBattery();
         refreshLocation();
         refreshBrightnessControl();
-        if (locationList) {
-            int index = Location::index();
-            if (index >= 0 && index < 256 && locationRow[index]) {
-                lv_obj_scroll_to_view(locationRow[index], LV_ANIM_OFF);
-            }
-        }
         lastUiRefreshMs = millis();
         lastOffsetRefreshMs = millis();
     }
@@ -557,8 +674,7 @@ namespace Settings
         make_label(timePanel, 110, 99, 138, 18, "Tap field, then -/+",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
 
-        /* Location card: a scrollable list of the full ~200-city dataset.
-         * Beijing (index 0) starts at the top; tapping a row applies it. */
+        /* Location card: current city + quick cities + full picker. */
         lv_obj_t *locationPanel = make_panel(settingsScreen, 450, 36, 178, 130);
         make_label(locationPanel, 8, 6, 72, 14, "LOCATION",
                    &ui_font_Inter10M, 0x888888, LV_TEXT_ALIGN_LEFT);
@@ -566,38 +682,119 @@ namespace Settings
                                          &ui_font_Inter10M, 0x888888,
                                          LV_TEXT_ALIGN_RIGHT);
 
-        locationList = lv_obj_create(locationPanel);
+        locationCurrentLabel = make_label(locationPanel, 8, 20, 160, 20, "",
+                                          &ui_font_Inter15SB, 0xFFFFFF,
+                                          LV_TEXT_ALIGN_LEFT);
+        lv_obj_add_flag(locationCurrentLabel, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(locationCurrentLabel, [](lv_event_t *) {
+            Settings::showLocationPicker();
+        }, LV_EVENT_CLICKED, NULL);
+
+        const int quickX[2] = {8, 92};
+        const int quickY[3] = {46, 70, 94};
+        for (int i = 0; i < 5; i++) {
+            const int index = i;
+            locationQuickIndex[i] = index;
+            locationQuickButton[i] = make_button(
+                locationPanel, quickX[i % 2], quickY[i / 2], 78, 20,
+                Location::at(index).name, &ui_font_Inter11R,
+                [](lv_event_t *event) {
+                    Settings::selectLocation(
+                        (int)(intptr_t)lv_event_get_user_data(event));
+                }, (void *)(intptr_t)index);
+        }
+        make_button(locationPanel, quickX[1], quickY[2], 78, 20,
+                    "All cities", &ui_font_Inter11R,
+                    [](lv_event_t *) { Settings::showLocationPicker(); }, NULL);
+
+        /* Full-screen city picker, opened from the Location card. */
+        locationScreen = lv_obj_create(NULL);
+        lv_obj_clear_flag(locationScreen, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_bg_color(locationScreen, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_opa(locationScreen, 255, 0);
+
+        make_label(locationScreen, 12, 5, 100, 22, "LOCATION",
+                   &ui_font_Inter18, 0xFFFFFF, LV_TEXT_ALIGN_LEFT);
+        locationPickerCityLabel = make_label(locationScreen, 120, 6, 340, 20,
+                                              "", &ui_font_Inter15M,
+                                              0xCCCCCC, LV_TEXT_ALIGN_LEFT);
+
+        make_button(locationScreen, 472, 4, 72, 24, "Cancel",
+                    &ui_font_Inter11R, [](lv_event_t *) {
+                        Settings::hideLocationPicker();
+                    }, NULL);
+        make_button(locationScreen, 552, 4, 72, 24, "Apply",
+                    &ui_font_Inter11R, [](lv_event_t *) {
+                        Settings::selectLocation(pendingLocationIndex);
+                        Settings::hideLocationPicker();
+                    }, NULL);
+
+        lv_obj_t *locationHeaderLine = lv_obj_create(locationScreen);
+        lv_obj_remove_style_all(locationHeaderLine);
+        lv_obj_set_pos(locationHeaderLine, 12, 32);
+        lv_obj_set_size(locationHeaderLine, 616, 1);
+        lv_obj_set_style_bg_color(locationHeaderLine, lv_color_hex(0x444444), 0);
+        lv_obj_set_style_bg_opa(locationHeaderLine, 255, 0);
+        lv_obj_clear_flag(locationHeaderLine,
+                          LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+        const char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (int f = 0; f < 27; f++) {
+            int col = (f < 14) ? f : (f - 14);
+            int row = (f < 14) ? 0 : 1;
+            int x = 12 + col * 44 + (row ? 22 : 0);
+            int y = 36 + row * 21;
+            char text[8] = {0};
+            if (f == 0) {
+                strcpy(text, "All");
+            } else {
+                text[0] = letters[f - 1];
+            }
+            locationLetterButton[f] = make_button(
+                locationScreen, x, y, 42, 18, text, &ui_font_Inter10M,
+                [](lv_event_t *event) {
+                    int code = (int)(intptr_t)lv_event_get_user_data(event);
+                    locationLetterFilter = code - 1;
+                    refreshLocationPicker();
+                }, (void *)(intptr_t)f);
+        }
+
+        locationList = lv_obj_create(locationScreen);
         lv_obj_remove_style_all(locationList);
-        lv_obj_set_pos(locationList, 6, 20);
-        lv_obj_set_size(locationList, 166, 104);
+        lv_obj_set_pos(locationList, 12, 78);
+        lv_obj_set_size(locationList, 616, 90);
         lv_obj_add_flag(locationList, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_scroll_dir(locationList, LV_DIR_VER);
         lv_obj_set_scrollbar_mode(locationList, LV_SCROLLBAR_MODE_AUTO);
         lv_obj_set_style_bg_opa(locationList, 0, 0);
         lv_obj_set_style_pad_all(locationList, 0, 0);
-        lv_obj_set_style_width(locationList, 2, LV_PART_SCROLLBAR);
-        lv_obj_set_style_bg_color(locationList, lv_color_hex(0x444444),
+        lv_obj_set_style_width(locationList, 6, LV_PART_SCROLLBAR);
+        lv_obj_set_style_bg_color(locationList, lv_color_hex(0x555555),
                                   LV_PART_SCROLLBAR);
         lv_obj_set_style_bg_opa(locationList, 255, LV_PART_SCROLLBAR);
+        lv_obj_set_style_radius(locationList, 3, LV_PART_SCROLLBAR);
 
         for (int i = 0; i < Location::count() && i < 256; i++) {
             lv_obj_t *row = lv_label_create(locationList);
-            lv_obj_set_pos(row, 0, i * 17);
-            lv_obj_set_size(row, 160, 16);
+            lv_obj_set_pos(row, 0, 0);
+            lv_obj_set_size(row, 300, 20);
             lv_label_set_long_mode(row, LV_LABEL_LONG_CLIP);
             lv_label_set_text(row, Location::at(i).name);
-            lv_obj_set_style_pad_left(row, 5, 0);
-            lv_obj_set_style_pad_top(row, 1, 0);
+            lv_obj_set_style_pad_left(row, 8, 0);
+            lv_obj_set_style_pad_top(row, 2, 0);
             lv_obj_set_style_bg_opa(row, 0, 0);
             lv_obj_set_style_bg_color(row, lv_color_hex(0x333333), 0);
-            lv_obj_set_style_radius(row, 3, 0);
-            lv_obj_set_style_text_font(row, &ui_font_Inter11R, 0);
+            lv_obj_set_style_radius(row, 4, 0);
+            lv_obj_set_style_text_font(row, &ui_font_Inter15R, 0);
             lv_obj_set_style_text_color(row, lv_color_hex(0xCCCCCC), 0);
             lv_obj_set_style_text_align(row, LV_TEXT_ALIGN_LEFT, 0);
             lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
             lv_obj_add_event_cb(row, [](lv_event_t *event) {
-                Settings::selectLocation((int)(intptr_t)lv_event_get_user_data(event));
+                pendingLocationIndex =
+                    (int)(intptr_t)lv_event_get_user_data(event);
+                updateLocationPickerSummary(pendingLocationIndex);
+                updateLocationRowStyles();
             }, LV_EVENT_CLICKED, (void *)(intptr_t)i);
             locationRow[i] = row;
         }
@@ -613,7 +810,7 @@ namespace Settings
 
     void update()
     {
-        if (!openFlag) return;
+        if (!openFlag || locationOpen) return;
 
         unsigned long nowMs = millis();
         if (nowMs - lastUiRefreshMs >= 250) {
@@ -642,6 +839,7 @@ namespace Settings
     {
         if (!settingsScreen || openFlag) return;
         openFlag = true;
+        locationOpen = false;
         refreshAll();
         lv_scr_load_anim(settingsScreen,
                          swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_LEFT),
@@ -652,6 +850,7 @@ namespace Settings
     {
         if (!settingsScreen || !openFlag) return;
         openFlag = false;
+        locationOpen = false;
         SettingsStore::save();
         lv_scr_load_anim(ui_Screen1,
                          swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_RIGHT),
@@ -662,6 +861,41 @@ namespace Settings
     bool isOpen()
     {
         return openFlag;
+    }
+
+    void showLocationPicker()
+    {
+        if (!locationScreen || locationOpen) return;
+
+        locationOpen = true;
+        pendingLocationIndex = Location::index();
+
+        char initial = locationInitial(pendingLocationIndex);
+        if (initial >= 'A' && initial <= 'Z') {
+            locationLetterFilter = initial - 'A';
+        } else {
+            locationLetterFilter = -1;
+        }
+
+        refreshLocationPicker();
+        lv_scr_load_anim(locationScreen,
+                         LV_SCR_LOAD_ANIM_MOVE_LEFT, 150, 0, false);
+    }
+
+    void hideLocationPicker(int swipeDx)
+    {
+        if (!locationOpen) return;
+
+        locationOpen = false;
+        refreshAll();
+        lv_scr_load_anim(settingsScreen,
+                         swipeAnimation(swipeDx, LV_SCR_LOAD_ANIM_MOVE_RIGHT),
+                         150, 0, false);
+    }
+
+    bool isLocationPickerOpen()
+    {
+        return locationOpen;
     }
 
     bool swipeBlocked()
@@ -700,6 +934,7 @@ namespace Settings
 
         if (!Location::setIndex(index)) return;
 
+        pendingLocationIndex = index;
         int newOffset = Location::offsetForUtc(utc);
         Clock::setFromUtc(utc, newOffset);
         SettingsStore::save();

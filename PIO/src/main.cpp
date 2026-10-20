@@ -167,6 +167,18 @@ namespace
     void handleSwipeGestures()
     {
         unsigned long nowMs = millis();
+
+        /* The city picker is a modal screen with its own Cancel/Apply
+         * actions; do not let the page-swipe gesture close Settings behind
+         * it. */
+        if (Settings::isLocationPickerOpen()) {
+            if (Display::TouchDown) {
+                swipeTouchActive = false;
+                swipeFired = true;
+            }
+            return;
+        }
+
         if (Settings::isOpen() && Settings::swipeBlocked()) {
             if (Display::TouchDown) {
                 swipeTouchActive = false;
@@ -275,6 +287,7 @@ namespace
         Serial.println("  X / Y / S               invert X / invert Y / swap touch axes");
         Serial.println("  C                       capture screenshot (RGB565 over USB)");
         Serial.println("  G                       open/close Settings page");
+        Serial.println("  W                       open/close the city picker (Settings only)");
         Serial.println("  L                       list locations; L 0..5 select");
         Serial.println("  K FIELD DELTA           adjust date/time field (0=year..5=sec)");
         Serial.println("  U UNIX_EPOCH            set RTC from UTC (uses current city)");
@@ -345,6 +358,16 @@ namespace
                         if (Settings::isOpen()) Settings::hide();
                         else Settings::show();
                         Serial.printf("Settings: %s\n", Settings::isOpen() ? "open" : "closed");
+                    } else if (*line == 'W' || *line == 'w') {
+                        if (!Settings::isOpen()) {
+                            Serial.println("Open Settings first (G)");
+                        } else if (Settings::isLocationPickerOpen()) {
+                            Settings::hideLocationPicker();
+                            Serial.println("City picker: closed");
+                        } else {
+                            Settings::showLocationPicker();
+                            Serial.println("City picker: open");
+                        }
                     } else if (*line == 'L' || *line == 'l') {
                         int index = -1;
                         if (sscanf(line + 1, "%d", &index) == 1) {

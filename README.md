@@ -131,8 +131,8 @@ On the clock face:
 
 The left column (`x < 180`) is the dedicated page-swipe zone.  It covers the
 moon tile on the clock page and the battery card on the Settings page, so page
-navigation never competes with the brightness slider, TICK switch, date/time
-fields or city list.
+navigation never competes with the brightness slider, TICK switch or date/time
+fields.
 
 The Settings page contains:
 
@@ -146,8 +146,12 @@ The Settings page contains:
 * **Date & time**: tap a field (year, month, day, hour, minute or second),
   then use `-` / `+` to adjust it.  Every change is written to the RTC
   immediately.  Invalid dates such as 31 February are rejected.
-* **Location**: about 200 cities in a scrollable list, grouped alphabetically
-  after the original six (Beijing, Paris, London, New York, Tokyo, Sydney).  The selection is stored in EEPROM.  Each city has its own
+* **Location**: the card shows the current city, a 5-city quick grid and an
+  `All cities` button.  Tapping a quick city applies it immediately; `All
+  cities` opens a full-screen picker with an A-Z filter, two-column list and
+  explicit `Cancel` / `Apply` actions.  The picker defaults to the current
+  city's first letter, and tapping a row only highlights it until Apply is
+  pressed.  The selection is stored in EEPROM.  Each city has its own
   coordinates and timezone/DST rule (EU, US, Australia, New Zealand and Chile
   rules are supported).  Changing city preserves the absolute UTC instant,
   rewrites the RTC in the new local time, updates the location pill and
@@ -185,6 +189,7 @@ Serial commands (115200 baud):
 |---|---|
 | `T YYYY-MM-DD HH:MM:SS` | set the RTC (local time) |
 | `G` | open/close the Settings page |
+| `W` | open/close the city picker (Settings must be open) |
 | `L` | list locations; `L 0..5` select a city |
 | `K FIELD DELTA` | adjust date/time field (0=year .. 5=second), for diagnostics |
 | `A` | print battery voltage and percentage |

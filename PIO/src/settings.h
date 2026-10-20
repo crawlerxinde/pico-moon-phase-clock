@@ -11,6 +11,11 @@ namespace Settings
     void hide(int swipeDx = 0);
     bool isOpen();
 
+    /* Full-screen city picker opened from the Location card. */
+    void showLocationPicker();
+    void hideLocationPicker(int swipeDx = 0);
+    bool isLocationPickerOpen();
+
     /* True while a Settings control is being pressed (or just released), so
      * the clock-page swipe detector does not close the page by accident. */
     bool swipeBlocked();
