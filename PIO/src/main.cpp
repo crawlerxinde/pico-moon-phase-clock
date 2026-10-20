@@ -279,6 +279,7 @@ namespace
         Serial.println("  A                       print battery voltage/percentage");
         Serial.println("  Q                       print ES8311 codec ID");
         Serial.println("  M                       measure audio MCLK/BCLK/LRCLK");
+        Serial.println("  O                       print moon orientation P/q/angle");
         Serial.println("  P                       sample touch for 30 s (diagnostic)");
         Serial.println("  V                       print display debug info");
         Serial.println("  D / E                   portrait / landscape panel fill test");
@@ -413,6 +414,8 @@ namespace
                         }
                         Serial.printf("AUDIO MCLK=%uHz BCLK=%uHz LRCLK=%uHz\n",
                                       counts[0] * 10, counts[1] * 10, counts[2] * 10);
+                    } else if (*line == 'O' || *line == 'o') {
+                        Astronomy::printOrientation();
                     } else if (*line == 'A' || *line == 'a') {
                         Battery::update();
                         int millivolts = (int)(Battery::voltage() * 1000.0f + 0.5f);

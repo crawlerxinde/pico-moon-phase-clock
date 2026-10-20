@@ -35,7 +35,27 @@ namespace
     constexpr double SYNODIC_MONTH = 29.530588853;
     constexpr double NEW_MOON_EPOCH_JD = 2451550.1; /* 2000-01-06 18:14 UTC */
 
+    /* The 30 static moon images are treated as lunar-north-up.  The moon tile
+     * is rotated by the position angle of lunar north relative to the local
+     * zenith (P - q).  These constants are the calibration points for the
+     * actual panel orientation and for small residual errors in the artwork. */
+    constexpr double MOON_POLE_RA        = 270.0;
+    constexpr double MOON_POLE_DEC       = 66.56;
+    constexpr float  MOON_ASSET_NORTH_OFFSET_DEG = 0.0f;
+    constexpr float  MOON_SCREEN_UP_OFFSET_DEG   = 0.0f;
+    constexpr float  MOON_ROTATION_SIGN          = 1.0f;
+
+    /* Optional per-frame correction for the static assets.  Keep this table
+     * zero unless a known moon/Stellarium comparison shows that a particular
+     * frame's baked terminator is not aligned with lunar north. */
+    constexpr float kMoonFrameCorrectionDeg[30] = {
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
+    };
+
     unsigned long lastUpdateMs = 0;
+    int currentFrame = 0;
 
     double normalizeDegrees(double d)
     {
@@ -173,6 +193,77 @@ namespace
         return normalizeDegrees(gmst + lonDeg);
     }
 
+    struct MoonAngles
+    {
+        double northPole;
+        double zenith;
+    };
+
+    MoonAngles moonAngles()
+    {
+        const double jd = julianFromUtc(Clock::utcEpoch());
+
+        double raM, decM;
+        moonPosition(jd, raM, decM);
+
+        /* Position angle of the Moon's north pole, measured from celestial
+         * north toward east.  The IAU pole is close enough for a clock. */
+        const double P = atan2(
+            cos(MOON_POLE_DEC * DEG2RAD) * sin((MOON_POLE_RA - raM) * DEG2RAD),
+            sin(MOON_POLE_DEC * DEG2RAD) * cos(decM * DEG2RAD) -
+            cos(MOON_POLE_DEC * DEG2RAD) * sin(decM * DEG2RAD) *
+                cos((MOON_POLE_RA - raM) * DEG2RAD)) * RAD2DEG;
+
+        /* Parallactic angle: position angle of the local zenith at the Moon,
+         * also measured from celestial north toward east. */
+        double H = normalizeDegrees(
+            localSiderealDeg(jd, Location::longitude()) - raM);
+        if (H > 180.0) H -= 360.0;
+
+        const double q = atan2(
+            sin(H * DEG2RAD),
+            tan(Location::latitude() * DEG2RAD) * cos(decM * DEG2RAD) -
+            sin(decM * DEG2RAD) * cos(H * DEG2RAD)) * RAD2DEG;
+
+        return {P, q};
+    }
+
+    int moonFrame()
+    {
+        const double jd = julianFromUtc(Clock::utcEpoch());
+        double phase = fmod((jd - NEW_MOON_EPOCH_JD) / SYNODIC_MONTH, 1.0);
+        if (phase < 0.0) phase += 1.0;
+
+        int frame = (int)(phase * 30.0);
+        if (frame < 0) frame = 0;
+        if (frame > 29) frame = 29;
+        return frame;
+    }
+
+    void applyMoonOrientation(int frame)
+    {
+        if (!ui_Screen1_Image_Moon) return;
+
+        const MoonAngles angles = moonAngles();
+        const float target = (float)(angles.northPole - angles.zenith);
+        const float correction = (frame >= 0 && frame < 30)
+                                     ? kMoonFrameCorrectionDeg[frame]
+                                     : 0.0f;
+
+        float rotation = target
+                       - MOON_ASSET_NORTH_OFFSET_DEG
+                       - MOON_SCREEN_UP_OFFSET_DEG
+                       + correction;
+        rotation *= MOON_ROTATION_SIGN;
+
+        while (rotation > 180.0f) rotation -= 360.0f;
+        while (rotation < -180.0f) rotation += 360.0f;
+
+        lv_img_set_pivot(ui_Screen1_Image_Moon, 85, 85);
+        lv_img_set_angle(ui_Screen1_Image_Moon,
+                         (int16_t)lroundf(rotation * 10.0f));
+    }
+
     double altitudeDeg(bool moon, time_t utc, double latDeg, double lonDeg)
     {
         double jd = julianFromUtc(utc);
@@ -268,17 +359,12 @@ namespace Astronomy
         formatEvent(moonrise, localOffset, moonriseText, sizeof(moonriseText));
         formatEvent(moonset,  localOffset, moonsetText,  sizeof(moonsetText));
 
-        time_t utcNow = Clock::utcEpoch();
-        double jd = julianFromUtc(utcNow);
-        double phase = fmod((jd - NEW_MOON_EPOCH_JD) / SYNODIC_MONTH, 1.0);
-        if (phase < 0.0) phase += 1.0;
-
-        int frame = (int)(phase * 30.0);
-        if (frame < 0) frame = 0;
-        if (frame > 29) frame = 29;
+        currentFrame = moonFrame();
 
         lv_label_set_text(ui_Screen1_Label_Phase, Location::city());
-        lv_img_set_src(ui_Screen1_Image_Moon, (const void *)ui_imgset_moon_[frame]);
+        lv_img_set_src(ui_Screen1_Image_Moon,
+                       (const void *)ui_imgset_moon_[currentFrame]);
+        applyMoonOrientation(currentFrame);
 
         char eventBuf[24];
         snprintf(eventBuf, sizeof(eventBuf), "%s ↑", sunriseText);
@@ -293,5 +379,56 @@ namespace Astronomy
         lv_obj_clear_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_HIDDEN);
 
         lastUpdateMs = nowMs;
+    }
+
+    float moonScreenAngleDeg()
+    {
+        const MoonAngles angles = moonAngles();
+        return (float)(angles.northPole - angles.zenith);
+    }
+
+    void updateOrientation()
+    {
+        currentFrame = moonFrame();
+        applyMoonOrientation(currentFrame);
+    }
+
+    void splitHundredths(double value, long &whole, long &fraction)
+    {
+        const long scaled = lround(value * 100.0);
+        whole = scaled / 100;
+        fraction = scaled % 100;
+        if (fraction < 0) fraction = -fraction;
+    }
+
+    void printOrientation()
+    {
+        const MoonAngles angles = moonAngles();
+        const float target = (float)(angles.northPole - angles.zenith);
+        const int frame = moonFrame();
+        const float correction = kMoonFrameCorrectionDeg[frame];
+        float applied = target
+                      - MOON_ASSET_NORTH_OFFSET_DEG
+                      - MOON_SCREEN_UP_OFFSET_DEG
+                      + correction;
+        applied *= MOON_ROTATION_SIGN;
+
+        long pWhole, pFrac, qWhole, qFrac, tWhole, tFrac;
+        long oWhole, oFrac, cWhole, cFrac, aWhole, aFrac;
+        splitHundredths(angles.northPole, pWhole, pFrac);
+        splitHundredths(angles.zenith, qWhole, qFrac);
+        splitHundredths(target, tWhole, tFrac);
+        splitHundredths(MOON_ASSET_NORTH_OFFSET_DEG +
+                        MOON_SCREEN_UP_OFFSET_DEG, oWhole, oFrac);
+        splitHundredths(correction, cWhole, cFrac);
+        splitHundredths(applied, aWhole, aFrac);
+
+        Serial.printf("MOON frame=%d P=%ld.%02ld q=%ld.%02ld "
+                      "screen=%ld.%02ld offset=%ld.%02ld "
+                      "corr=%ld.%02ld applied=%ld.%02ld sign=%d\n",
+                      frame, pWhole, pFrac, qWhole, qFrac,
+                      tWhole, tFrac, oWhole, oFrac,
+                      cWhole, cFrac, aWhole, aFrac,
+                      MOON_ROTATION_SIGN < 0.0f ? -1 : 1);
     }
 }

@@ -181,6 +181,7 @@ Serial commands (115200 baud):
 | `F` | flip the display 180 degrees |
 | `X` / `Y` / `S` | invert touch X / invert touch Y / swap touch axes |
 | `C` | capture the LVGL screen as RGB565 over USB |
+| `O` | print moon orientation: lunar pole P, zenith q, screen angle |
 | `R` | print the current RTC date/time |
 | `?` | help |
 
@@ -304,6 +305,13 @@ local time with `--time`.
 * **UI**: the original 320x170 layout was re-arranged for 640x172.  The moon
   image remains 170x170 on the left; time, date, phase and rise/set times use
   the remaining width.
+* **Moon orientation**: the 30 static moon frames are treated as lunar-north-up.
+  The image is rotated by `P - q`, where `P` is the position angle of the lunar
+  north pole and `q` is the local parallactic angle.  This makes the terminator
+  tilt depend on both the selected city and the current time.  The calibration
+  constants live in `PIO/src/astronomy.cpp`; the `O` serial command prints the
+  intermediate P/q values.  If the artwork is not exactly north-up, adjust
+  `MOON_ASSET_NORTH_OFFSET_DEG` or the per-frame correction table.
 * **Power**: `SYS_EN` is asserted at the very start of `setup()` so the board
   stays on when running from the 18650 battery.  A short press of the power
   button toggles the backlight; holding it for ~1.5 s powers the board off.

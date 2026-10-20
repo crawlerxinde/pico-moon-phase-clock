@@ -376,6 +376,10 @@ namespace
             SettingsStore::save();
             if (selectedField <= FIELD_DAY) {
                 Astronomy::update(true);
+            } else {
+                /* The rise/set times only change at midnight, but the moon
+                 * orientation follows the current hour angle immediately. */
+                Astronomy::updateOrientation();
             }
             refreshDateTime();
             refreshLocation();

@@ -24,6 +24,27 @@ VID = 0x2E8A
 PID = 0x000F
 
 
+def _is_bootsel_device(dev) -> bool:
+    """Return True when the device is the RP2350 ROM bootloader."""
+    try:
+        product = (dev.product or "").lower()
+        if "boot" in product:
+            return True
+    except Exception:
+        pass
+
+    try:
+        for cfg in dev:
+            for intf in cfg:
+                # Mass-storage interface used by the RP2350 BOOTSEL disk.
+                if intf.bInterfaceClass == 8 and intf.bInterfaceSubClass == 6:
+                    return True
+    except Exception:
+        pass
+
+    return False
+
+
 def enter_bootsel() -> bool:
     if usb is None:
         print("[flash] pyusb is not installed; cannot send 1200-baud touch",
@@ -33,6 +54,10 @@ def enter_bootsel() -> bool:
     dev = usb.core.find(idVendor=VID, idProduct=PID)
     if dev is None:
         print("[flash] app device not found; assuming BOOTSEL is already active")
+        return True
+
+    if _is_bootsel_device(dev):
+        print("[flash] device is already in BOOTSEL mode")
         return True
 
     for interface in (0, 1):
@@ -48,11 +73,18 @@ def enter_bootsel() -> bool:
             struct.pack("<IBBB", 1200, 0, 0, 8),
             timeout=1000,
         )
-        time.sleep(0.2)
-        dev.ctrl_transfer(0x21, 0x22, 0x0000, 0, None, timeout=1000)
     except Exception as exc:
         print(f"[flash] 1200-baud touch failed: {exc}", file=sys.stderr)
         return False
+
+    # The RP2350 can reboot immediately after SET_LINE_CODING, so the
+    # follow-up control transfer may report "No such device".  That is the
+    # expected outcome of a successful touch, not an error.
+    try:
+        time.sleep(0.2)
+        dev.ctrl_transfer(0x21, 0x22, 0x0000, 0, None, timeout=1000)
+    except Exception:
+        pass
 
     try:
         usb.util.dispose_resources(dev)
