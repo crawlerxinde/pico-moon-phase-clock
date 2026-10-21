@@ -1228,8 +1228,8 @@ namespace
 
         lv_obj_t *minus = make_card(control, 12, 28, 56, 44, true);
         lv_obj_add_event_cb(minus, [](lv_event_t *) {
-            int v = Brightness::current() - 5;
-            if (v < 40) v = 40;
+            int v = Brightness::current() - 1;
+            if (v < Brightness::minimum()) v = Brightness::minimum();
             Brightness::set(v);
             refreshBrightnessScreen();
         }, LV_EVENT_CLICKED, NULL);
@@ -1244,7 +1244,7 @@ namespace
 
         lv_obj_t *plus = make_card(control, 420, 28, 56, 44, true);
         lv_obj_add_event_cb(plus, [](lv_event_t *) {
-            int v = Brightness::current() + 5;
+            int v = Brightness::current() + 1;
             if (v > 100) v = 100;
             Brightness::set(v);
             refreshBrightnessScreen();
@@ -1272,6 +1272,12 @@ namespace
         brightnessValue = make_label(control, 80, 58, 328, 28, "",
                                       &ui_font_Inter28, COLOR_TEXT,
                                       LV_TEXT_ALIGN_CENTER);
+
+        char hint[40];
+        snprintf(hint, sizeof(hint), "Minimum brightness: %d%%",
+                 Brightness::minimum());
+        make_label(brightnessScreen, 140, 158, 488, 14, hint,
+                   &ui_font_Inter11R, 0x59616B, LV_TEXT_ALIGN_CENTER);
     }
 
     void createConfirmScreen()

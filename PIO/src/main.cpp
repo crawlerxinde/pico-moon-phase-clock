@@ -283,7 +283,7 @@ namespace
         Serial.println("Moon Phase Clock - RP2350-Touch-LCD-3.49");
         Serial.println("Commands:");
         Serial.println("  T YYYY-MM-DD HH:MM:SS   set RTC (local time)");
-        Serial.println("  B 40..100               set backlight brightness (min 40%)");
+        Serial.println("  B 35..100               set backlight brightness (min 35%)");
         Serial.println("  F                       flip display 180 degrees");
         Serial.println("  X / Y / S               invert X / invert Y / swap touch axes");
         Serial.println("  C                       capture screenshot (RGB565 over USB)");

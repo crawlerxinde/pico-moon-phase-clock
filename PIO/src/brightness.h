@@ -13,10 +13,11 @@ namespace Brightness
     /* Set 0..100; applies immediately when the screen is on. */
     void set(int percent);
 
-    /* Adjust by delta, clamped to 10..100 for gesture/slider use. */
+    /* Adjust by delta, clamped to 35..100 for gesture/slider use. */
     void adjust(int delta);
 
     int  current();
+    int  minimum();
     bool screenOn();
     void toggleScreen();
     void forceOff();

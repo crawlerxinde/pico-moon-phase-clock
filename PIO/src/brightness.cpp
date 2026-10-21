@@ -4,7 +4,7 @@
 
 namespace
 {
-    constexpr int MIN_PERCENT = 40;
+    constexpr int MIN_PERCENT = 35;
     int  currentPercent = 100;
     bool screenOnFlag = true;
 }
@@ -45,6 +45,11 @@ namespace Brightness
     int current()
     {
         return currentPercent;
+    }
+
+    int minimum()
+    {
+        return MIN_PERCENT;
     }
 
     bool screenOn()

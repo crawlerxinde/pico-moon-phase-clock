@@ -49,7 +49,7 @@ python scripts/set_rtc.py --time "2026-10-17 22:30:00"
 首次使用请修改 `PIO/src/credential.h` 中的经纬度和时区。自动校准使用电脑本地时间；
 如果电脑时区与板子配置的 UTC 偏移不同，请用 `--time` 传入正确的本地时间。
 
-串口命令：`B 40..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`C` 截屏、`R` 读时间、`?` 帮助。
+串口命令：`B 35..100` 亮度、`F` 翻转显示、`X/Y/S` 触摸校准、`C` 截屏、`R` 读时间、`?` 帮助。
 
 截屏（生成 PNG）：
 
@@ -124,7 +124,7 @@ longer than 24 hours.
 On the clock face:
 
 * swipe **up / down** outside the left column to increase / decrease brightness
-  by 20% (clamped to 40–100%),
+  by 20% (clamped to 35–100%),
 * swipe **left or right in the left column** to open Settings; the same gesture
   in the left column returns from Settings,
 * or tap the location pill to open Settings.
@@ -153,7 +153,7 @@ The Settings overview contains four full-card entries plus a separate
 * **Tick Sound**: shows `Audible` or `Muted`; the large action card immediately
   toggles the per-second tick and persists the new state.
 * **Brightness**: opens a single read-only brightness bar with large `-` / `+`
-  controls in 5% steps (clamped to 40–100% so the panel stays readable).
+  controls in 1% steps (clamped to 35–100%, with a dim minimum-brightness hint at the bottom).
   Changes apply immediately; the bar is only an indicator and cannot be dragged.
 
 Back from an editor with unsaved date/time or location changes opens the
@@ -204,7 +204,7 @@ Serial commands (115200 baud):
 | `L` | list locations; `L 0..5` select a city |
 | `K FIELD DELTA` | adjust date/time field (0=year .. 5=second), for diagnostics |
 | `A` | print battery voltage and percentage |
-| `B 40..100` | set backlight brightness (minimum 40%) |
+| `B 35..100` | set backlight brightness (minimum 35%) |
 | `F` | flip the display 180 degrees |
 | `X` / `Y` / `S` | invert touch X / invert touch Y / swap touch axes |
 | `C` | capture the LVGL screen as RGB565 over USB |
