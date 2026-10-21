@@ -158,8 +158,16 @@ The Settings overview contains four full-card entries plus a separate
 
 Back from an editor with unsaved date/time or location changes opens the
 `Discard Changes` dialog.  Apply and Discard dialogs both use explicit Cancel
-and action buttons.  The overview cards display live device state; there is no
-separate battery card.
+and action buttons.  The overview cards display live device state.
+
+The overview header also shows a white battery indicator, sampled immediately
+on entry and refreshed about every 1.5 seconds while the page is open.  It uses
+five FontAwesome levels (`battery-full`, `battery-three-quarters`,
+`battery-half`, `battery-quarter`, `battery-empty`) at 85%, 60%, 35% and 15%
+thresholds.  When no 18650 is
+detected (the normal USB-only case) it shows a plug icon and `USB` instead of a
+fake percentage.  There is no separate battery card and no VBUS/charge-status
+GPIO, so a battery connected while on USB is shown as a normal battery level.
 
 The default city still comes from `PIO/src/credential.h`; the EEPROM selection
 overrides it after the first change.

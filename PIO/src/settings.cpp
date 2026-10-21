@@ -10,6 +10,7 @@
 
 #include "astronomy.h"
 #include "audio_tick.h"
+#include "battery.h"
 #include "brightness.h"
 #include "clock.h"
 #include "location.h"
@@ -86,6 +87,8 @@ namespace
     lv_obj_t *overviewTick = nullptr;
     lv_obj_t *overviewTickState = nullptr;
     lv_obj_t *overviewBrightness = nullptr;
+    lv_obj_t *overviewBatteryIcon = nullptr;
+    lv_obj_t *overviewBatteryText = nullptr;
 
     lv_obj_t *dateRoller[3] = {nullptr, nullptr, nullptr};
     bool dateSyncing = false;
@@ -293,8 +296,37 @@ namespace
                draftDateTime.second != originalDateTime.second;
     }
 
+    const char *batteryGlyph(int percent)
+    {
+        if (percent >= 85) return "\xEF\x89\x80"; /* battery-full */
+        if (percent >= 60) return "\xEF\x89\x81"; /* battery-three-quarters */
+        if (percent >= 35) return "\xEF\x89\x82"; /* battery-half */
+        if (percent >= 15) return "\xEF\x89\x83"; /* battery-quarter */
+        return "\xEF\x89\x84";                   /* battery-empty */
+    }
+
+    void refreshBatteryIndicator()
+    {
+        if (!overviewBatteryIcon || !overviewBatteryText) return;
+
+        if (!Battery::present()) {
+            /* No 18650 detected: the divider is pulled low, which is the
+             * normal USB-only state on this board. */
+            lv_label_set_text(overviewBatteryIcon, "\xEF\x87\xA6");
+            lv_label_set_text(overviewBatteryText, "USB");
+            return;
+        }
+
+        const int percent = Battery::percent();
+        lv_label_set_text(overviewBatteryIcon, batteryGlyph(percent));
+        char text[8];
+        snprintf(text, sizeof(text), "%d%%", percent);
+        lv_label_set_text(overviewBatteryText, text);
+    }
+
     void refreshOverview()
     {
+        Battery::update();
         Clock::DateTime now = Clock::now();
         char text[48];
 
@@ -325,6 +357,7 @@ namespace
             snprintf(text, sizeof(text), "%d%%", Brightness::current());
             lv_label_set_text(overviewBrightness, text);
         }
+        refreshBatteryIndicator();
 
         for (int i = 0; i < 4; i++) {
             if (!overviewCards[i]) continue;
@@ -415,6 +448,7 @@ namespace
          * if a previous transition left the flag stale. */
         openFlag = true;
         currentPage = PAGE_OVERVIEW;
+        Battery::update(true);
         refreshOverview();
         loadPage(overviewScreen, LV_SCR_LOAD_ANIM_MOVE_RIGHT);
     }
@@ -788,6 +822,13 @@ namespace
                    &ui_font_FA28, COLOR_TEXT, LV_TEXT_ALIGN_CENTER);
         make_label(overviewScreen, 48, 6, 240, 32, "Settings",
                    &ui_font_Inter28, COLOR_TEXT, LV_TEXT_ALIGN_LEFT);
+
+        overviewBatteryIcon = make_label(overviewScreen, 548, 4, 32, 28,
+                                         "\xEF\x89\x80", &ui_font_FA28,
+                                         COLOR_TEXT, LV_TEXT_ALIGN_RIGHT);
+        overviewBatteryText = make_label(overviewScreen, 582, 8, 46, 22, "",
+                                         &ui_font_Inter15M, COLOR_TEXT,
+                                         LV_TEXT_ALIGN_RIGHT);
 
         const int cardX[4] = {8, 134, 260, 386};
         for (int i = 0; i < 4; i++) {
@@ -1307,6 +1348,7 @@ namespace Settings
         if (!overviewScreen || openFlag) return;
         openFlag = true;
         currentPage = PAGE_OVERVIEW;
+        Battery::update(true);
         refreshOverview();
         loadPage(overviewScreen,
                  swipeDx < 0 ? LV_SCR_LOAD_ANIM_MOVE_LEFT :

@@ -52,12 +52,12 @@ namespace Battery
         update();
     }
 
-    void update()
+    void update(bool force)
     {
         if (!initialized) return;
 
         unsigned long nowMs = millis();
-        if (lastReadMs != 0 && (nowMs - lastReadMs) < 1500UL) return;
+        if (!force && lastReadMs != 0 && (nowMs - lastReadMs) < 1500UL) return;
         lastReadMs = nowMs;
 
         uint32_t sum = 0;

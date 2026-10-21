@@ -6,7 +6,7 @@ namespace Battery
 {
     /* Battery voltage is divided by 3 and fed to GPIO40 / ADC0. */
     void begin();
-    void update();
+    void update(bool force = false);
 
     bool  present();
     float voltage();
