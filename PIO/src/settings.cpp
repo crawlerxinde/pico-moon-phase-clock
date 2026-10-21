@@ -84,6 +84,7 @@ namespace
     lv_obj_t *overviewTime = nullptr;
     lv_obj_t *overviewCity = nullptr;
     lv_obj_t *overviewOffset = nullptr;
+    lv_obj_t *overviewTickIcon = nullptr;
     lv_obj_t *overviewTick = nullptr;
     lv_obj_t *overviewTickState = nullptr;
     lv_obj_t *overviewBrightness = nullptr;
@@ -347,6 +348,11 @@ namespace
                          offset, sizeof(offset));
             lv_label_set_text(overviewOffset, offset);
         }
+        if (overviewTickIcon) {
+            lv_label_set_text(overviewTickIcon,
+                              Audio::enabled() ? "\xEF\x80\xA8"
+                                               : "\xEF\x9A\xA9");
+        }
         if (overviewTick) {
             lv_label_set_text(overviewTick, Audio::enabled() ? "Audible" : "Muted");
         }
@@ -404,6 +410,10 @@ namespace
                           on ? "1 tick / second | ON" : "No tick sound | OFF");
         lv_label_set_text(tickActionIcon,
                           on ? "\xEF\x9A\xA9" : "\xEF\x80\xA8");
+        if (overviewTickIcon) {
+            lv_label_set_text(overviewTickIcon,
+                              on ? "\xEF\x80\xA8" : "\xEF\x9A\xA9");
+        }
         lv_label_set_text(tickActionLabel, on ? "Mute" : "Unmute");
         lv_label_set_text(tickActionSub,
                           on ? "Stop tick sound" : "Play tick sound");
@@ -884,8 +894,9 @@ namespace
             overviewFocus = 2;
             showTickScreen();
         }, LV_EVENT_CLICKED, NULL);
-        make_label(overviewCards[2], 0, 8, 120, 28, "\xEF\x80\xA8",
-                   &ui_font_FA28, COLOR_TEXT, LV_TEXT_ALIGN_CENTER);
+        overviewTickIcon = make_label(overviewCards[2], 0, 8, 120, 28,
+                                      "\xEF\x80\xA8", &ui_font_FA28,
+                                      COLOR_TEXT, LV_TEXT_ALIGN_CENTER);
         make_label(overviewCards[2], 0, 38, 120, 16, "Tick Sound",
                    &ui_font_Inter15M, COLOR_TEXT, LV_TEXT_ALIGN_CENTER);
         lv_obj_t *tickLine = lv_obj_create(overviewCards[2]);
