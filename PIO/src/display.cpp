@@ -17,6 +17,7 @@ namespace
     constexpr uint32_t TOUCH_I2C_HZ   = 400000;
     constexpr uint32_t DRAW_BUF_PIXELS = Display::Width * Display::Height;
     constexpr int      ROT_BLOCK_ROWS  = 8;
+    constexpr uint32_t TOUCH_I2C_TIMEOUT_US = 5000;
 
     lv_disp_draw_buf_t draw_buf;
     lv_color_t         draw_buf_mem[DRAW_BUF_PIXELS];
@@ -43,17 +44,49 @@ namespace
         gpio_pull_up(TOUCH_SCL_PIN);
     }
 
+    int touchErrorCount = 0;
+
+    void touch_bus_clear()
+    {
+        /* Clock a stuck slave free before re-initialising the I2C block. */
+        gpio_set_function(TOUCH_SDA_PIN, GPIO_FUNC_SIO);
+        gpio_set_dir(TOUCH_SDA_PIN, GPIO_IN);
+        gpio_pull_up(TOUCH_SDA_PIN);
+        gpio_set_function(TOUCH_SCL_PIN, GPIO_FUNC_SIO);
+        gpio_set_dir(TOUCH_SCL_PIN, GPIO_OUT);
+        for (int i = 0; i < 9; i++) {
+            gpio_put(TOUCH_SCL_PIN, 0);
+            sleep_us(5);
+            gpio_put(TOUCH_SCL_PIN, 1);
+            sleep_us(5);
+        }
+    }
+
+    void touch_recover()
+    {
+        touch_bus_clear();
+        i2c_deinit(i2c0);
+        touch_begin();
+        touchErrorCount = 0;
+    }
+
     bool touch_read(uint16_t &x, uint16_t &y,
                     uint16_t *rawOutX = nullptr, uint16_t *rawOutY = nullptr)
     {
         uint8_t data[32] = {0};
 
-        if (i2c_write_blocking(i2c0, TOUCH_I2C_ADDR, touch_cmd, sizeof(touch_cmd), true) < 0) {
+        if (i2c_write_timeout_us(i2c0, TOUCH_I2C_ADDR, touch_cmd,
+                                 sizeof(touch_cmd), true,
+                                 TOUCH_I2C_TIMEOUT_US) < 0) {
+            if (++touchErrorCount >= 3) touch_recover();
             return false;
         }
-        if (i2c_read_blocking(i2c0, TOUCH_I2C_ADDR, data, sizeof(data), false) < 0) {
+        if (i2c_read_timeout_us(i2c0, TOUCH_I2C_ADDR, data, sizeof(data),
+                                false, TOUCH_I2C_TIMEOUT_US) < 0) {
+            if (++touchErrorCount >= 3) touch_recover();
             return false;
         }
+        touchErrorCount = 0;
 
         if (data[1] == 0 || data[1] > 2) {
             return false;
@@ -265,7 +298,7 @@ namespace Display
         lv_init();
 
         LCD_Init();
-        clearPanel(0xFFFF);
+        clearPanel(0x0000);
         touch_begin();
 
         lv_disp_draw_buf_init(&draw_buf, draw_buf_mem, nullptr, DRAW_BUF_PIXELS);

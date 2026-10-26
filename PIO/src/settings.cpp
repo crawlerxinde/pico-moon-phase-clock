@@ -1342,6 +1342,9 @@ namespace Settings
         createConfirmScreen();
 
         lv_obj_add_flag(ui_Screen1_Panel_border, LV_OBJ_FLAG_CLICKABLE);
+        /* Keep the visible pill compact but give the capacitive touch a much
+         * larger hit target around it. */
+        lv_obj_set_ext_click_area(ui_Screen1_Panel_border, 16);
         lv_obj_add_event_cb(ui_Screen1_Panel_border, [](lv_event_t *) {
             Settings::show();
         }, LV_EVENT_CLICKED, NULL);

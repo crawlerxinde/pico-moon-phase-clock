@@ -524,12 +524,15 @@ void setup()
     pinMode(POWER_BUTTON_PIN, INPUT_PULLUP);
     buttonIgnoreUntilRelease = (digitalRead(POWER_BUTTON_PIN) == LOW);
 
+    /* Initialise the panel first so the backlight is switched off as early
+     * as possible and the boot noise cannot be seen. */
+    Display::begin();
+
     Serial.begin(115200);
     delay(100);
     Serial.println();
     Serial.println("Moon Phase Clock for RP2350-Touch-LCD-3.49");
 
-    Display::begin();
     Brightness::begin(defaultBrightness);
     Location::begin();
     Battery::begin();
@@ -590,6 +593,7 @@ void loop()
     Audio::update();
 
     Astronomy::update();
+    Battery::update();
     SettingsStore::update();
     Settings::update();
     handleSwipeGestures();

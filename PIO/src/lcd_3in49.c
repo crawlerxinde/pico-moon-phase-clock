@@ -135,12 +135,15 @@ void LCD_SetRotation(uint8_t madctl)
 
 void LCD_Init(void)
 {
+    /* Kill the backlight before touching the panel.  The AXS15231B can show
+     * its power-on noise while the QSPI pins and reset sequence are being
+     * configured, which looked like a brief "garbled" boot. */
+    backlight_init();
+    LCD_SetBacklight(0);
+
     QSPI_GPIO_Init(qspi);
     QSPI_PIO_Init(qspi);
     QSPI_4Wrie_Mode(&qspi);
-
-    backlight_init();
-    LCD_SetBacklight(0);
 
     /* Power-cycle the panel before every initialisation.  The AXS15231B can
      * latch an invalid/test mode after a large number of soft resets; only a
