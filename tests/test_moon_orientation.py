@@ -15,14 +15,15 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 import moon_model  # noqa: E402
 
-REFERENCE_DIR = ROOT / "moon_reference"
-MANIFEST = REFERENCE_DIR / "manifest.json"
+DEFAULT_REFERENCE_DIR = ROOT / "moon_reference"
+DEFAULT_MANIFEST = DEFAULT_REFERENCE_DIR / "manifest.json"
 ASSET_DIR = ROOT.parent / "Assets" / "Moon_Phase"
 BJT = timezone(timedelta(hours=8))
 
@@ -84,9 +85,15 @@ def angle_error(a: float, b: float) -> float:
 
 
 def main() -> int:
-    if not MANIFEST.exists():
-        raise SystemExit(f"missing {MANIFEST}; run tests/fetch_moon_references.py")
-    entries = json.loads(MANIFEST.read_text())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--reference-dir", type=Path, default=DEFAULT_REFERENCE_DIR)
+    args = parser.parse_args()
+    manifest = args.manifest
+    reference_dir = args.reference_dir
+    if not manifest.exists():
+        raise SystemExit(f"missing {manifest}; run tests/fetch_moon_references.py")
+    entries = json.loads(manifest.read_text())
     failures = []
     checked = 0
     with tempfile.TemporaryDirectory(prefix="moon-orientation-") as tmp:
@@ -96,7 +103,7 @@ def main() -> int:
             jd = moon_model.julian_from_utc(local)
             generated = tmp_path / entry["reference"]
             values = moon_model.render_device_image(ASSET_DIR, jd, generated)
-            reference = REFERENCE_DIR / entry["reference"]
+            reference = reference_dir / entry["reference"]
             if not reference.exists():
                 failures.append(f"{entry['reference']}: missing reference")
                 continue

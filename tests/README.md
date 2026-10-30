@@ -4,7 +4,8 @@
 host (no flash required) for a complete lunation and compares the illuminated
 side with timeanddate moon renderings.
 
-The reference PNGs in `moon_reference/` are cached from
+The reference PNGs in `moon_reference/` cover one lunation, while
+`moon_reference_2026/` covers four samples per month for all of 2026.  They are cached from
 `https://www.timeanddate.com/scripts/moon.php` using the parameters computed by
 `moon_model.py`.  Two additional images in the set are live page captures
 (2026-10-20 and 2026-10-30) used as independent checks.

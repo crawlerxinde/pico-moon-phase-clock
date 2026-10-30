@@ -27,6 +27,7 @@ build:
 test:
 	$(PYTHON) test_r4_layout.py
 	$(PYTHON) tests/test_moon_orientation.py
+	$(PYTHON) tests/test_moon_orientation.py --manifest tests/moon_reference_2026/manifest.json --reference-dir tests/moon_reference_2026
 	$(PYTHON) -m py_compile \
 		$(PIO_DIR)/scripts/flash.py \
 		$(PIO_DIR)/scripts/sync_time.py \

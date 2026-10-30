@@ -254,9 +254,10 @@ make sync_time TIME="2026-10-19 12:34:56"
 make clean
 ```
 
-`make test` also renders the static moon frames for a full lunation and compares
-their illuminated-side direction against cached timeanddate moon renderings in
-`tests/moon_reference/`.  The fixtures can be regenerated with
+`make test` also renders the static moon frames for a full lunation and for
+all 12 months of 2026, comparing their illuminated-side direction against
+cached timeanddate moon renderings in `tests/moon_reference/` and
+`tests/moon_reference_2026/`.  The fixtures can be regenerated with
 `tests/fetch_moon_references.py` using a Chrome remote-debugging session.
 
 `make flash` waits for the board to boot and then runs the same RTC sync as
