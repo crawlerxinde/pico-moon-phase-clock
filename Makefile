@@ -26,6 +26,7 @@ build:
 
 test:
 	$(PYTHON) test_r4_layout.py
+	$(PYTHON) tests/test_moon_orientation.py
 	$(PYTHON) -m py_compile \
 		$(PIO_DIR)/scripts/flash.py \
 		$(PIO_DIR)/scripts/sync_time.py \

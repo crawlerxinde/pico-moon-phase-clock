@@ -274,6 +274,12 @@ namespace
         float rotation = correction - terminator
                        - MOON_ASSET_NORTH_OFFSET_DEG
                        - MOON_SCREEN_UP_OFFSET_DEG;
+
+        /* The static waning frames are lit on the opposite side of their
+         * baked terminator.  Keep the terminator line but flip the lit side
+         * for the waning half of the cycle. */
+        if (frame >= 16 && frame <= 28) rotation += 180.0f;
+
         rotation *= MOON_ROTATION_SIGN;
 
         while (rotation > 180.0f) rotation -= 360.0f;
@@ -480,6 +486,7 @@ namespace Astronomy
         float applied = correction - terminator
                       - MOON_ASSET_NORTH_OFFSET_DEG
                       - MOON_SCREEN_UP_OFFSET_DEG;
+        if (frame >= 16 && frame <= 28) applied += 180.0f;
         applied *= MOON_ROTATION_SIGN;
         while (applied > 180.0f) applied -= 360.0f;
         while (applied < -180.0f) applied += 360.0f;

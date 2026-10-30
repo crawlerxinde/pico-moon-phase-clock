@@ -1,0 +1,155 @@
+[
+  {
+    "local": "2026-10-16T09:50:00+08:00",
+    "frame": 4,
+    "terminator": 60.0629,
+    "rotation": -75.0629,
+    "illumination": 0.24355,
+    "reference": "20261016-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.24355&p=1.04829&r=1.00360"
+  },
+  {
+    "local": "2026-10-18T21:00:00+08:00",
+    "frame": 7,
+    "terminator": -42.1579,
+    "rotation": 41.6579,
+    "illumination": 0.49299,
+    "reference": "20261018-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.49299&p=5.54739&r=5.54385"
+  },
+  {
+    "local": "2026-10-21T09:50:00+08:00",
+    "frame": 10,
+    "terminator": 17.4432,
+    "rotation": 1.5568,
+    "illumination": 0.75073,
+    "reference": "20261021-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.75073&p=0.30444&r=0.30403"
+  },
+  {
+    "local": "2026-10-23T21:00:00+08:00",
+    "frame": 12,
+    "terminator": -5.5685,
+    "rotation": 28.0685,
+    "illumination": 0.93367,
+    "reference": "20261023-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.93367&p=6.18600&r=6.11905"
+  },
+  {
+    "local": "2026-10-26T09:50:00+08:00",
+    "frame": 15,
+    "terminator": 26.3646,
+    "rotation": -26.3646,
+    "illumination": 0.99992,
+    "reference": "20261026-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.99992&p=0.46015&r=5.48771"
+  },
+  {
+    "local": "2026-10-28T21:00:00+08:00",
+    "frame": 17,
+    "terminator": -141.8564,
+    "rotation": -14.6436,
+    "illumination": 0.92811,
+    "reference": "20261028-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.92811&p=3.80732&r=0.81282"
+  },
+  {
+    "local": "2026-10-30T09:50:00+08:00",
+    "frame": 19,
+    "terminator": 123.6055,
+    "rotation": 72.8945,
+    "illumination": 0.82264,
+    "reference": "20261030-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.82264&p=2.15732&r=5.36210"
+  },
+  {
+    "local": "2026-11-01T21:00:00+08:00",
+    "frame": 21,
+    "terminator": -132.4017,
+    "rotation": -42.5983,
+    "illumination": 0.58796,
+    "reference": "20261101-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.58796&p=3.97234&r=0.84053"
+  },
+  {
+    "local": "2026-11-03T09:50:00+08:00",
+    "frame": 23,
+    "terminator": 155.3616,
+    "rotation": 16.1384,
+    "illumination": 0.42543,
+    "reference": "20261103-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.42543&p=2.71157&r=5.86133"
+  },
+  {
+    "local": "2026-11-05T21:00:00+08:00",
+    "frame": 25,
+    "terminator": -162.1316,
+    "rotation": -38.8684,
+    "illumination": 0.18785,
+    "reference": "20261105-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.18785&p=3.45345&r=0.37324"
+  },
+  {
+    "local": "2026-11-08T09:50:00+08:00",
+    "frame": 28,
+    "terminator": -164.3684,
+    "rotation": -45.6316,
+    "illumination": 0.03157,
+    "reference": "20261108-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.03157&p=3.41442&r=0.62144"
+  },
+  {
+    "local": "2026-11-10T21:00:00+08:00",
+    "frame": 0,
+    "terminator": -24.9738,
+    "rotation": 24.9738,
+    "illumination": 0.00698,
+    "reference": "20261110-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.00698&p=5.84731&r=5.47551"
+  },
+  {
+    "local": "2026-11-13T09:50:00+08:00",
+    "frame": 3,
+    "terminator": 53.3562,
+    "rotation": -71.8562,
+    "illumination": 0.11971,
+    "reference": "20261113-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.11971&p=0.93124&r=0.83401"
+  },
+  {
+    "local": "2026-11-15T21:00:00+08:00",
+    "frame": 5,
+    "terminator": -53.9759,
+    "rotation": 40.9759,
+    "illumination": 0.33341,
+    "reference": "20261115-2100.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.33341&p=5.34113&r=5.31127"
+  },
+  {
+    "local": "2026-11-17T09:50:00+08:00",
+    "frame": 7,
+    "terminator": 34.1978,
+    "rotation": -34.6978,
+    "illumination": 0.49343,
+    "reference": "20261117-0950.png",
+    "source": "https://www.timeanddate.com/scripts/moon.php?i=0.49343&p=0.59686&r=0.57995"
+  },
+  {
+    "local": "2026-10-20T20:35:00+08:00",
+    "frame": 9,
+    "terminator": -30.5457,
+    "rotation": 42.0457,
+    "illumination": 0.69831,
+    "reference": "20261020-2035.png",
+    "source": "timeanddate live capture"
+  },
+  {
+    "local": "2026-10-30T10:09:12+08:00",
+    "frame": 19,
+    "terminator": 125.234,
+    "rotation": 71.266,
+    "illumination": 0.82155,
+    "reference": "20261030-1009.png",
+    "source": "timeanddate live capture"
+  }
+]

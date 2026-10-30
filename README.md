@@ -247,12 +247,17 @@ From the repository root:
 
 ```bash
 make build       # PlatformIO build
-make test        # layout/geometry tests + Python syntax checks
+make test        # layout + moon-vs-timeanddate tests + Python syntax checks
 make flash       # build, flash, then sync the RTC from host local time
 make sync_time   # sync the RTC without flashing
 make sync_time TIME="2026-10-19 12:34:56"
 make clean
 ```
+
+`make test` also renders the static moon frames for a full lunation and compares
+their illuminated-side direction against cached timeanddate moon renderings in
+`tests/moon_reference/`.  The fixtures can be regenerated with
+`tests/fetch_moon_references.py` using a Chrome remote-debugging session.
 
 `make flash` waits for the board to boot and then runs the same RTC sync as
 `make sync_time`, so the clock should match the host immediately after flashing.
@@ -341,6 +346,9 @@ local time with `--time`.
   terminator = chi - q + 90 degrees
   screen rotation = kMoonFrameCorrectionDeg[frame] - terminator
   ```
+  The waning frames (16–28) additionally receive a 180° rotation so the
+  illuminated side is on the correct side of the baked terminator; this does
+  not change the terminator line itself.
   The 30 static frames are not all exactly lunar-north-up, so
   `kMoonFrameCorrectionDeg` stores each frame's measured terminator chord
   angle.  This preserves the lunar surface orientation while making the
