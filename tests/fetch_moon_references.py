@@ -3,6 +3,8 @@
 
 This is a fixture generator, not part of the normal build.  It needs a
 running Chrome with the timeanddate page open and a remote-debugging port.
+By default it generates four samples per month for the current year.
+
 Example:
 
     google-chrome --remote-debugging-port=9227 \
@@ -11,7 +13,7 @@ Example:
 
 The timeanddate renderer takes illumination (i), terminator position angle
 (p, radians) and lunar-north position angle (r, radians).  The values are
-computed by tests/moon_model.py so the renderings cover a full lunation.
+computed by tests/moon_model.py so the renderings cover a full year.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ import json
 import math
 import sys
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import websocket
@@ -30,25 +32,8 @@ import websocket
 sys.path.insert(0, str(Path(__file__).parent))
 import moon_model  # noqa: E402
 
-ROOT = Path(__file__).parent / "moon_reference"
 BJT = timezone(timedelta(hours=8))
-SAMPLE_TIMES = [
-    "2026-10-16 09:50:00",
-    "2026-10-18 21:00:00",
-    "2026-10-21 09:50:00",
-    "2026-10-23 21:00:00",
-    "2026-10-26 09:50:00",
-    "2026-10-28 21:00:00",
-    "2026-10-30 09:50:00",
-    "2026-11-01 21:00:00",
-    "2026-11-03 09:50:00",
-    "2026-11-05 21:00:00",
-    "2026-11-08 09:50:00",
-    "2026-11-10 21:00:00",
-    "2026-11-13 09:50:00",
-    "2026-11-15 21:00:00",
-    "2026-11-17 09:50:00",
-]
+SAMPLE_DAYS = (4, 11, 18, 25)
 
 
 def page_ws(port: int) -> str:
@@ -91,39 +76,50 @@ def fetch_image(ws: websocket.WebSocket, url: str, output: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=9227)
+    parser.add_argument("--year", type=int, default=date.today().year)
     args = parser.parse_args()
 
-    ROOT.mkdir(parents=True, exist_ok=True)
+    root = Path(__file__).parent / f"moon_reference_{args.year}"
+    root.mkdir(parents=True, exist_ok=True)
     ws = websocket.create_connection(page_ws(args.port), timeout=15)
     manifest = []
     try:
-        for stamp in SAMPLE_TIMES:
-            local = datetime.fromisoformat(stamp).replace(tzinfo=BJT)
-            jd = moon_model.julian_from_utc(local)
-            values = moon_model.screen_terms(jd)
-            p = math.radians(values["terminator"]) % (2.0 * math.pi)
-            r = math.radians(values["north"] - values["parallactic"]) % (2.0 * math.pi)
-            name = local.strftime("%Y%m%d-%H%M") + ".png"
-            url = (
-                "https://www.timeanddate.com/scripts/moon.php"
-                f"?i={values['illumination']:.5f}&p={p:.5f}&r={r:.5f}"
-            )
-            fetch_image(ws, url, ROOT / name)
-            manifest.append(
-                {
-                    "local": local.isoformat(),
-                    "frame": values["frame"],
-                    "terminator": round(values["terminator"], 4),
-                    "rotation": round(values["rotation"], 4),
-                    "illumination": round(values["illumination"], 5),
-                    "reference": name,
-                    "source": url,
-                }
-            )
-            print(name)
+        for month in range(1, 13):
+            for index, day in enumerate(SAMPLE_DAYS):
+                hour = 9 if index % 2 == 0 else 21
+                minute = 50 if hour == 9 else 0
+                local = datetime(
+                    args.year, month, day, hour, minute, tzinfo=BJT
+                )
+                jd = moon_model.julian_from_utc(local)
+                values = moon_model.screen_terms(jd)
+                p = math.radians(values["terminator"]) % (2.0 * math.pi)
+                r = math.radians(
+                    values["north"] - values["parallactic"]
+                ) % (2.0 * math.pi)
+                name = local.strftime("%Y%m%d-%H%M") + ".png"
+                url = (
+                    "https://www.timeanddate.com/scripts/moon.php"
+                    f"?i={values['illumination']:.5f}&p={p:.5f}&r={r:.5f}"
+                )
+                fetch_image(ws, url, root / name)
+                manifest.append(
+                    {
+                        "local": local.isoformat(),
+                        "frame": values["frame"],
+                        "terminator": round(values["terminator"], 4),
+                        "rotation": round(values["rotation"], 4),
+                        "illumination": round(values["illumination"], 5),
+                        "reference": name,
+                        "source": url,
+                    }
+                )
+                print(name)
     finally:
         ws.close()
-    (ROOT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (root / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

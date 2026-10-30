@@ -4,7 +4,7 @@
 The reference PNGs are captured once from timeanddate's moon.php renderer by
 tests/fetch_moon_references.py.  This test does not flash the board; it applies
 the same frame selection/rotation logic to the static assets and checks the
-lit-limb direction across a full lunar month.
+lit-limb direction across the current year's cached samples.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import math
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import argparse
 from pathlib import Path
 
@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 import moon_model  # noqa: E402
 
-DEFAULT_REFERENCE_DIR = ROOT / "moon_reference"
+DEFAULT_REFERENCE_DIR = ROOT / f"moon_reference_{date.today().year}"
 DEFAULT_MANIFEST = DEFAULT_REFERENCE_DIR / "manifest.json"
 ASSET_DIR = ROOT.parent / "Assets" / "Moon_Phase"
 BJT = timezone(timedelta(hours=8))
